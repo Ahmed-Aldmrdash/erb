@@ -288,17 +288,20 @@ language sql stable security definer set search_path = public, extensions as $$
   where public.erp_session_division() = 'all' or d.division = public.erp_session_division()
 $$;
 
--- Users: only the owner account (division 'all') adds, changes or removes
--- them. The permissions decide what the phone shows; which business's data a
--- user reaches is still decided by the division of his login.
+-- Users. Whoever is signed in to a business adds and changes the people of
+-- that business; only the owner account (division 'all') touches accounts
+-- that see both businesses. The permissions decide what the phone shows;
+-- which business's data a user reaches is decided by his division.
 create or replace function public.erp_add_user(
   p_username text, p_password text, p_name text, p_division text, p_permissions text
 ) returns json
 language plpgsql security definer set search_path = public, extensions as $$
 declare
+  v_div text := public.erp_session_division();
   v_id text;
 begin
-  if public.erp_session_division() <> 'all' then return json_build_object('error', 'forbidden'); end if;
+  if v_div is null then return json_build_object('error', 'session'); end if;
+  if v_div <> 'all' and p_division <> v_div then return json_build_object('error', 'forbidden'); end if;
   if coalesce(trim(p_username), '') = '' or coalesce(trim(p_name), '') = '' then
     return json_build_object('error', 'missing');
   end if;
@@ -319,11 +322,16 @@ create or replace function public.erp_update_user(
 ) returns json
 language plpgsql security definer set search_path = public, extensions as $$
 declare
+  v_div text := public.erp_session_division();
   d public.departments;
 begin
-  if public.erp_session_division() <> 'all' then return json_build_object('error', 'forbidden'); end if;
+  if v_div is null then return json_build_object('error', 'session'); end if;
   select * into d from public.departments where id = p_id;
   if d.id is null then return json_build_object('error', 'department'); end if;
+  -- A business head stays inside his own business, on both sides of the change.
+  if v_div <> 'all' and (d.division <> v_div or coalesce(p_division, v_div) <> v_div) then
+    return json_build_object('error', 'forbidden');
+  end if;
   if p_division is not null and p_division not in ('crops', 'appliances', 'all') then
     return json_build_object('error', 'division');
   end if;
@@ -348,11 +356,13 @@ end $$;
 create or replace function public.erp_delete_user(p_id text) returns json
 language plpgsql security definer set search_path = public, extensions as $$
 declare
+  v_div text := public.erp_session_division();
   d public.departments;
 begin
-  if public.erp_session_division() <> 'all' then return json_build_object('error', 'forbidden'); end if;
+  if v_div is null then return json_build_object('error', 'session'); end if;
   select * into d from public.departments where id = p_id;
   if d.id is null then return json_build_object('error', 'department'); end if;
+  if v_div <> 'all' and d.division <> v_div then return json_build_object('error', 'forbidden'); end if;
   if exists (select 1 from public.sessions
              where token_hash = public.erp_current_token_hash() and department_id = d.id) then
     return json_build_object('error', 'self');

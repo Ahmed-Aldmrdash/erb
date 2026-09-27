@@ -132,12 +132,16 @@ class MoreScreen extends StatelessWidget {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => push(context, const AccountScreen()),
               ),
-              // Users live on the server: a phone working on its own has none.
-              if (app.isCloud && app.isManager)
+              // Users live on the server: a phone working on its own has
+              // none. Whoever is signed in manages the people of his own
+              // business; the server refuses anything past that.
+              if (app.isCloud)
                 ListTile(
                   leading: const Icon(Icons.people_alt_outlined),
                   title: const Text('المستخدمين والصلاحيات'),
-                  subtitle: const Text('ضيف حساب جديد وحدد يشوف إيه'),
+                  subtitle: Text(app.isManager
+                      ? 'ضيف حساب جديد وحدد يشوف إيه'
+                      : 'حسابات ${app.divisionName}: ضيف حساب وحدد يشوف إيه'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => push(context, const UsersScreen()),
                 ),
@@ -162,7 +166,7 @@ class MoreScreen extends StatelessWidget {
             const Padding(
               padding: EdgeInsets.all(20),
               child: Text(
-                'الدمرداش - الإصدار 2.5',
+                'الدمرداش - الإصدار 2.5.1',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: AppColors.muted),
               ),

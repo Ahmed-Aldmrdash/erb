@@ -8,6 +8,7 @@ import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
 import '../common/person_chip.dart';
 import 'passwords_screen.dart';
+import 'users_screen.dart';
 
 /// Cloud icon showing the sync state; opens the account screen.
 class SyncButton extends StatelessWidget {
@@ -103,6 +104,14 @@ class AccountScreen extends StatelessWidget {
               _wipeBox(context),
               const SizedBox(height: 12),
               if (app.isCloud) ...[
+                // Also here, next to the passwords: this is where anybody
+                // looks for anything to do with the accounts.
+                FilledButton.tonalIcon(
+                  onPressed: () => push(context, const UsersScreen()),
+                  icon: const Icon(Icons.people_alt_outlined),
+                  label: const Text('المستخدمين والصلاحيات'),
+                ),
+                const SizedBox(height: 10),
                 OutlinedButton.icon(
                   onPressed: () => push(context, const PasswordsScreen()),
                   icon: const Icon(Icons.key_outlined),

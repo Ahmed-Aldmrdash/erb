@@ -33,6 +33,13 @@ class _UsersScreenState extends State<UsersScreen> {
       _loading = true;
       _error = null;
     });
+    if (!app.isCloud || app.server == null) {
+      setState(() {
+        _error = 'الموبايل ده شغال من غير سيرفر، فمفيش مستخدمين.';
+        _loading = false;
+      });
+      return;
+    }
     try {
       final users = await app.server!.departments();
       if (mounted) {
@@ -186,7 +193,10 @@ class _UserFormState extends State<_UserForm> {
   late final _name = TextEditingController(text: s(widget.user?['display_name']));
   late final _username = TextEditingController(text: s(widget.user?['username']));
   final _password = TextEditingController();
-  late String _division = s(widget.user?['division']).isEmpty ? Division.appliances : s(widget.user!['division']);
+  // Somebody signed in to one business only makes people for that business.
+  late String _division = s(widget.user?['division']).isNotEmpty
+      ? s(widget.user!['division'])
+      : (app.isManager ? Division.appliances : app.sessionDivision);
   late Set<String> _perms = Perm.parse(s(widget.user?['permissions']));
   late bool _active = widget.user == null || n(widget.user!['active']) != 0;
   bool _busy = false;
@@ -290,15 +300,21 @@ class _UserFormState extends State<_UserForm> {
                     ),
                   const Text('يدخل على', style: TextStyle(fontWeight: FontWeight.w700)),
                   const Gap(6),
-                  Choice<String>(
-                    options: const {
-                      Division.appliances: 'المعرض',
-                      Division.crops: 'التجارة',
-                      Division.all: 'الاتنين',
-                    },
-                    value: _division,
-                    onChanged: (v) => setState(() => _division = v),
-                  ),
+                  if (app.isManager)
+                    Choice<String>(
+                      options: const {
+                        Division.appliances: 'المعرض',
+                        Division.crops: 'التجارة',
+                        Division.all: 'الاتنين',
+                      },
+                      value: _division,
+                      onChanged: (v) => setState(() => _division = v),
+                    )
+                  else
+                    Text(
+                      Division.names[_division] ?? '',
+                      style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.muted),
+                    ),
                   const Gap(16),
                   const Text('يشوف إيه', style: TextStyle(fontWeight: FontWeight.w700)),
                   const Gap(4),
