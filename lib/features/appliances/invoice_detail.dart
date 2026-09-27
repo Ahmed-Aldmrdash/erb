@@ -6,6 +6,7 @@ import '../../core/util/format.dart';
 import '../../data/appliances_repo.dart';
 import '../../data/calc.dart';
 import '../../data/labels.dart';
+import '../../data/permissions.dart';
 import '../../ui/share.dart';
 import '../../ui/theme.dart';
 import '../../ui/wa_text.dart';
@@ -63,11 +64,15 @@ class InvoiceDetailScreen extends StatelessWidget {
             appBar: AppBar(
               title: Text(title),
               actions: [
+                // A cashier may look at his own sale and print it again, but
+                // changing or deleting an invoice is not his to do.
+                if (app.can(Perm.sales))
                 IconButton(
                   tooltip: 'تعديل',
                   onPressed: () => push(context, InvoiceForm(kind: kind, id: invoiceId)),
                   icon: const Icon(Icons.edit_outlined),
                 ),
+                if (app.can(Perm.sales))
                 PopupMenuButton<String>(
                   onSelected: (v) async {
                     if (v == 'return') {

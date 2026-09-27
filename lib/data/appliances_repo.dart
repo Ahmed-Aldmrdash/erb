@@ -332,6 +332,9 @@ LEFT JOIN cash_boxes b ON b.id = i.cash_box_id''';
     String? partyId,
     String search = '',
     int? limit,
+
+    /// Only what this person wrote, for a cashier who may see his own sales.
+    String? byPerson,
   }) {
     final where = <String>['i.deleted = 0'];
     final args = <Object?>[];
@@ -346,6 +349,7 @@ LEFT JOIN cash_boxes b ON b.id = i.cash_box_id''';
     }
 
     add('i.payment_type = ?', paymentType);
+    add('i.created_by_name = ?', byPerson);
     add('i.date >= ?', from);
     add('i.date <= ?', to);
     add('i.party_id = ?', partyId);

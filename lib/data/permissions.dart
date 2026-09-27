@@ -39,8 +39,10 @@ class Perm {
     settings: 'بيانات المؤسسة، النسخة الاحتياطية، المستخدمين وكلمات المرور',
   };
 
-  /// A cashier who only sells and sees the stock.
-  static const cashierPreset = [pos, stock];
+  /// A cashier: he sells, writes on the reminder board (everybody can), and
+  /// finds the sales he wrote himself. Nothing else — no purchases, no money,
+  /// no editing an invoice, no other people's sales.
+  static const cashierPreset = [pos];
 
   /// Somebody running a whole business, minus the settings.
   static const managerPreset = [pos, stock, sales, accounts, money, reports];

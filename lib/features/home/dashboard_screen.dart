@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/app_state.dart';
+import '../../data/permissions.dart';
 import '../../core/db/app_db.dart';
 import '../../core/util/format.dart';
 import '../../data/appliances_repo.dart';
@@ -12,6 +13,7 @@ import '../accounts/party_detail.dart';
 import '../accounts/voucher_form.dart';
 import '../appliances/installments_screen.dart';
 import '../appliances/invoice_form.dart';
+import '../appliances/invoices_screen.dart';
 import '../appliances/products_screen.dart';
 import '../cash/daily_cash_screen.dart';
 import '../common/person_chip.dart';
@@ -86,12 +88,16 @@ class DashboardScreen extends StatelessWidget {
               children: [
                 _hero(context, d),
                 const _OldVersionCard(),
-                if (!app.isCrops) _posButton(),
-                const SectionTitle('عمليات سريعة'),
-                ActionGrid(columns: 4, children: app.isCrops ? _tradeActions(context) : _showroomActions(context)),
+                if (!app.isCrops && app.can(Perm.pos)) _posButton(),
+                if (_quickActions(context).isNotEmpty) ...[
+                  const SectionTitle('عمليات سريعة'),
+                  ActionGrid(columns: 4, children: _quickActions(context)),
+                ],
                 ..._notesSection(context, d),
-                ..._collectionsSection(context, d),
-                if (app.isCrops) ..._tradeSection(context, d) else ..._showroomSection(context, d),
+                if (app.can(Perm.accounts) || app.can(Perm.sales)) ..._collectionsSection(context, d),
+                if (app.can(Perm.stock) || app.can(Perm.sales) || app.can(Perm.reports))
+                  if (app.isCrops) ..._tradeSection(context, d) else ..._showroomSection(context, d),
+                if (app.can(Perm.accounts)) ...[
                 const SectionTitle('الحسابات'),
                 CardRow(children: [
                   StatCard(
@@ -109,6 +115,7 @@ class DashboardScreen extends StatelessWidget {
                     onTap: () => push(context, const PartiesScreen(balanceFilter: -1)),
                   ),
                 ]),
+                ],
                 ..._chart(d),
                 const SizedBox(height: 24),
               ],
@@ -140,15 +147,18 @@ class DashboardScreen extends StatelessWidget {
             const SizedBox(height: 12),
             Row(
               children: [
-                Expanded(
-                  child: _GlassNumber(
-                    label: 'في الخزنة',
-                    value: egp(d.cash),
-                    sub: 'دخل ${money(d.cashIn)} • خرج ${money(d.cashOut)}',
-                    onTap: () => push(context, const DailyCashScreen()),
+                // What is in the till is for whoever handles the money.
+                if (app.can(Perm.money)) ...[
+                  Expanded(
+                    child: _GlassNumber(
+                      label: 'في الخزنة',
+                      value: egp(d.cash),
+                      sub: 'دخل ${money(d.cashIn)} • خرج ${money(d.cashOut)}',
+                      onTap: () => push(context, const DailyCashScreen()),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 10),
+                  const SizedBox(width: 10),
+                ],
                 Expanded(
                   child: _GlassNumber(
                     label: todayLabel,
@@ -177,103 +187,168 @@ class DashboardScreen extends StatelessWidget {
 
   // ---------------------------------------------------------------- actions
 
-  List<Widget> _showroomActions(BuildContext context) => [
-        ActionTile(
-          icon: Icons.receipt_long_outlined,
-          label: 'فاتورة بيع',
-          onTap: () => push(context, const InvoiceForm(kind: 'sale')),
+  /// The quick actions this person may use. A cashier ends up with the
+  /// cashier and the reminder, and nothing that touches money or purchases.
+  List<Widget> _quickActions(BuildContext context) =>
+      (app.isCrops ? _tradeActions(context) : _showroomActions(context))
+          .where((a) => a.$1)
+          .map((a) => a.$2)
+          .toList();
+
+  List<(bool, Widget)> _showroomActions(BuildContext context) => [
+        (
+          app.can(Perm.sales),
+          ActionTile(
+            icon: Icons.receipt_long_outlined,
+            label: 'فاتورة بيع',
+            onTap: () => push(context, const InvoiceForm(kind: 'sale')),
+          )
         ),
-        ActionTile(
-          icon: Icons.south_west,
-          label: 'استلمت فلوس',
-          color: AppColors.good,
-          onTap: () => push(context, const VoucherForm(kind: 'receipt')),
+        (
+          app.can(Perm.money),
+          ActionTile(
+            icon: Icons.south_west,
+            label: 'استلمت فلوس',
+            color: AppColors.good,
+            onTap: () => push(context, const VoucherForm(kind: 'receipt')),
+          )
         ),
-        ActionTile(
-          icon: Icons.north_east,
-          label: 'دفعت فلوس',
-          color: AppColors.bad,
-          onTap: () => push(context, const VoucherForm(kind: 'payment')),
+        (
+          app.can(Perm.money),
+          ActionTile(
+            icon: Icons.north_east,
+            label: 'دفعت فلوس',
+            color: AppColors.bad,
+            onTap: () => push(context, const VoucherForm(kind: 'payment')),
+          )
         ),
-        ActionTile(
-          icon: Icons.shopping_bag_outlined,
-          label: 'مصروف',
-          color: AppColors.warn,
-          onTap: () => push(context, const VoucherForm(kind: 'expense')),
+        (
+          app.can(Perm.money),
+          ActionTile(
+            icon: Icons.shopping_bag_outlined,
+            label: 'مصروف',
+            color: AppColors.warn,
+            onTap: () => push(context, const VoucherForm(kind: 'expense')),
+          )
         ),
-        ActionTile(
-          icon: Icons.event_available_outlined,
-          label: 'تحصيل قسط',
-          color: AppColors.appliances,
-          onTap: () => push(context, const InstallmentsScreen()),
+        (
+          app.can(Perm.sales),
+          ActionTile(
+            icon: Icons.event_available_outlined,
+            label: 'تحصيل قسط',
+            color: AppColors.appliances,
+            onTap: () => push(context, const InstallmentsScreen()),
+          )
         ),
-        ActionTile(
-          icon: Icons.add_shopping_cart,
-          label: 'بضاعة جت',
-          color: AppColors.crops,
-          onTap: () => push(context, const InvoiceForm(kind: 'purchase')),
+        (
+          app.can(Perm.sales),
+          ActionTile(
+            icon: Icons.add_shopping_cart,
+            label: 'بضاعة جت',
+            color: AppColors.crops,
+            onTap: () => push(context, const InvoiceForm(kind: 'purchase')),
+          )
         ),
-        ActionTile(
-          icon: Icons.sticky_note_2_outlined,
-          label: 'تذكرة جديدة',
-          color: AppColors.accounts,
-          onTap: () => showNoteSheet(context),
+        (
+          true,
+          ActionTile(
+            icon: Icons.sticky_note_2_outlined,
+            label: 'تذكرة جديدة',
+            color: AppColors.accounts,
+            onTap: () => showNoteSheet(context),
+          )
         ),
-        ActionTile(
-          icon: Icons.today_outlined,
-          label: 'يومية الخزنة',
-          color: AppColors.muted,
-          onTap: () => push(context, const DailyCashScreen()),
+        (
+          !app.can(Perm.sales) && app.can(Perm.pos),
+          ActionTile(
+            icon: Icons.receipt_outlined,
+            label: 'فواتيري',
+            color: AppColors.appliances,
+            onTap: () => push(context, const InvoicesScreen(mineOnly: true)),
+          )
+        ),
+        (
+          app.can(Perm.money),
+          ActionTile(
+            icon: Icons.today_outlined,
+            label: 'يومية الخزنة',
+            color: AppColors.muted,
+            onTap: () => push(context, const DailyCashScreen()),
+          )
         ),
       ];
 
-  List<Widget> _tradeActions(BuildContext context) => [
-        ActionTile(
-          icon: Icons.move_to_inbox_outlined,
-          label: 'توريد محصول',
-          onTap: () => push(context, const CropTradeForm(kind: 'purchase')),
+  List<(bool, Widget)> _tradeActions(BuildContext context) => [
+        (
+          app.can(Perm.sales),
+          ActionTile(
+            icon: Icons.move_to_inbox_outlined,
+            label: 'توريد محصول',
+            onTap: () => push(context, const CropTradeForm(kind: 'purchase')),
+          )
         ),
-        ActionTile(
-          icon: Icons.local_shipping_outlined,
-          label: 'بيع محصول',
-          color: AppColors.appliances,
-          onTap: () => push(context, const CropTradeForm(kind: 'sale')),
+        (
+          app.can(Perm.sales),
+          ActionTile(
+            icon: Icons.local_shipping_outlined,
+            label: 'بيع محصول',
+            color: AppColors.appliances,
+            onTap: () => push(context, const CropTradeForm(kind: 'sale')),
+          )
         ),
-        ActionTile(
-          icon: Icons.volunteer_activism_outlined,
-          label: 'سلفة لفلاح',
-          color: AppColors.accent,
-          onTap: () => push(context, const VoucherForm(kind: 'advance')),
+        (
+          app.can(Perm.money),
+          ActionTile(
+            icon: Icons.volunteer_activism_outlined,
+            label: 'سلفة لفلاح',
+            color: AppColors.accent,
+            onTap: () => push(context, const VoucherForm(kind: 'advance')),
+          )
         ),
-        ActionTile(
-          icon: Icons.shopping_bag_outlined,
-          label: 'مصروف',
-          color: AppColors.warn,
-          onTap: () => push(context, const VoucherForm(kind: 'expense')),
+        (
+          app.can(Perm.money),
+          ActionTile(
+            icon: Icons.shopping_bag_outlined,
+            label: 'مصروف',
+            color: AppColors.warn,
+            onTap: () => push(context, const VoucherForm(kind: 'expense')),
+          )
         ),
-        ActionTile(
-          icon: Icons.south_west,
-          label: 'استلمت فلوس',
-          color: AppColors.good,
-          onTap: () => push(context, const VoucherForm(kind: 'receipt')),
+        (
+          app.can(Perm.money),
+          ActionTile(
+            icon: Icons.south_west,
+            label: 'استلمت فلوس',
+            color: AppColors.good,
+            onTap: () => push(context, const VoucherForm(kind: 'receipt')),
+          )
         ),
-        ActionTile(
-          icon: Icons.north_east,
-          label: 'دفعت فلوس',
-          color: AppColors.bad,
-          onTap: () => push(context, const VoucherForm(kind: 'payment')),
+        (
+          app.can(Perm.money),
+          ActionTile(
+            icon: Icons.north_east,
+            label: 'دفعت فلوس',
+            color: AppColors.bad,
+            onTap: () => push(context, const VoucherForm(kind: 'payment')),
+          )
         ),
-        ActionTile(
-          icon: Icons.sticky_note_2_outlined,
-          label: 'تذكرة جديدة',
-          color: AppColors.accounts,
-          onTap: () => showNoteSheet(context),
+        (
+          true,
+          ActionTile(
+            icon: Icons.sticky_note_2_outlined,
+            label: 'تذكرة جديدة',
+            color: AppColors.accounts,
+            onTap: () => showNoteSheet(context),
+          )
         ),
-        ActionTile(
-          icon: Icons.price_change_outlined,
-          label: 'أسعار النهارده',
-          color: AppColors.muted,
-          onTap: () => push(context, const CropPricesScreen()),
+        (
+          app.can(Perm.stock),
+          ActionTile(
+            icon: Icons.price_change_outlined,
+            label: 'أسعار النهارده',
+            color: AppColors.muted,
+            onTap: () => push(context, const CropPricesScreen()),
+          )
         ),
       ];
 

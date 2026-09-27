@@ -29,6 +29,11 @@ void main() {
       expect(Perm.names[p], isNotNull, reason: p);
       expect(Perm.details[p], isNotNull, reason: p);
     }
+    // The cashier sells and nothing else: no purchases, no money, no
+    // touching invoices that are not his.
+    expect(Perm.cashierPreset, [Perm.pos]);
+    expect(Perm.cashierPreset.contains(Perm.sales), isFalse);
+    expect(Perm.cashierPreset.contains(Perm.money), isFalse);
     expect(Perm.cashierPreset.every(Perm.all.contains), isTrue);
     expect(Perm.managerPreset.every(Perm.all.contains), isTrue);
     // The shop manager runs the business but does not touch the settings.

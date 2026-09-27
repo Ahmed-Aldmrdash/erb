@@ -12,9 +12,13 @@ import 'invoice_detail.dart';
 import 'invoice_form.dart';
 
 class InvoicesScreen extends StatefulWidget {
-  const InvoicesScreen({super.key, this.kind = 'sale'});
+  const InvoicesScreen({super.key, this.kind = 'sale', this.mineOnly = false});
 
   final String kind;
+
+  /// The sales this person wrote himself, and nothing else: what a cashier
+  /// opens to find a receipt for a customer who came back.
+  final bool mineOnly;
 
   @override
   State<InvoicesScreen> createState() => _InvoicesScreenState();
@@ -29,28 +33,32 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(
-          title: const Text('الفواتير'),
+          title: Text(widget.mineOnly ? 'فواتيري' : 'الفواتير'),
           actions: [
-            ExcelButton(
-              title: 'فواتير المعرض',
-              sheets: () async => [await ExcelExport.invoices(), await ExcelExport.invoiceLines()],
-            ),
+            if (!widget.mineOnly)
+              ExcelButton(
+                title: 'فواتير المعرض',
+                sheets: () async => [await ExcelExport.invoices(), await ExcelExport.invoiceLines()],
+              ),
           ],
         ),
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: () => push(context, InvoiceForm(kind: _kind)),
-          icon: const Icon(Icons.add),
-          label: Text(invoiceKinds[_kind] ?? 'فاتورة'),
-        ),
+        floatingActionButton: widget.mineOnly
+            ? null
+            : FloatingActionButton.extended(
+                onPressed: () => push(context, InvoiceForm(kind: _kind)),
+                icon: const Icon(Icons.add),
+                label: Text(invoiceKinds[_kind] ?? 'فاتورة'),
+              ),
         body: Column(
           children: [
             SearchField(onChanged: (v) => setState(() => _search = v), hint: 'بحث بالاسم أو رقم الفاتورة'),
-            ChipsBar<String>(
-              options: const {'sale': 'البيع', 'purchase': 'الشراء', 'sale_return': 'مرتجع بيع', 'purchase_return': 'مرتجع شراء'},
-              value: _kind,
-              onChanged: (v) => setState(() => _kind = v),
-            ),
-            if (_kind == 'sale')
+            if (!widget.mineOnly)
+              ChipsBar<String>(
+                options: const {'sale': 'البيع', 'purchase': 'الشراء', 'sale_return': 'مرتجع بيع', 'purchase_return': 'مرتجع شراء'},
+                value: _kind,
+                onChanged: (v) => setState(() => _kind = v),
+              ),
+            if (_kind == 'sale' && !widget.mineOnly)
               ChipsBar<String>(
                 options: const {'': 'كل طرق الدفع', 'cash': 'كاش', 'credit': 'آجل', 'installment': 'تقسيط'},
                 value: _payment,
@@ -59,16 +67,24 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
             PeriodBar(value: _period, onChanged: (p) => setState(() => _period = p)),
             Expanded(
               child: DbBuilder<List<DbRow>>(
-                queryKey: (_kind, _payment, _period, _search),
+                queryKey: (_kind, _payment, _period, _search, widget.mineOnly),
                 query: () => app.appliances.invoices(
-                  kinds: [_kind],
+                  kinds: [widget.mineOnly ? 'sale' : _kind],
                   paymentType: _kind == 'sale' && _payment.isNotEmpty ? _payment : null,
                   from: _period.from,
                   to: _period.to,
                   search: _search,
+                  byPerson: widget.mineOnly ? app.person : null,
                 ),
                 builder: (context, rows) {
-                  if (rows.isEmpty) return const EmptyView(icon: Icons.receipt_long_outlined, text: 'مفيش فواتير في الفترة دي');
+                  if (rows.isEmpty) {
+                    return EmptyView(
+                      icon: Icons.receipt_long_outlined,
+                      text: widget.mineOnly
+                          ? 'مفيش فواتير كتبتها في الفترة دي'
+                          : 'مفيش فواتير في الفترة دي',
+                    );
+                  }
                   final total = rows.fold<double>(0, (a, r) => a + n(r['grand_total']));
                   return ListView(
                     padding: const EdgeInsets.only(bottom: 90),
