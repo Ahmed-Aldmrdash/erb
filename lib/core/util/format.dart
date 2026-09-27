@@ -18,6 +18,18 @@ double n(Object? v) {
 
 int ni(Object? v) => n(v).round();
 
+/// Reads a yes/no value whatever it came as: a real bool from the server's
+/// JSON, 0/1 from SQLite, or "true"/"false" text. [orElse] is the answer for
+/// a value that is missing altogether.
+bool flag(Object? v, {bool orElse = false}) {
+  if (v == null) return orElse;
+  if (v is bool) return v;
+  if (v is num) return v != 0;
+  final text = v.toString().trim().toLowerCase();
+  if (text.isEmpty) return orElse;
+  return text == 'true' || text == '1' || text == 'yes';
+}
+
 String s(Object? v) => v?.toString() ?? '';
 
 /// A left-to-right mark keeps a leading minus sign on the left inside RTL text.

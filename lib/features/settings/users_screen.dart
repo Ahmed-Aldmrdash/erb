@@ -58,6 +58,10 @@ class _UsersScreenState extends State<UsersScreen> {
     }
   }
 
+  /// Whether this account is stopped. The server answers with a real
+  /// true/false, so it is read as one.
+  static bool _off(Map<String, dynamic> user) => !flag(user['active'], orElse: true);
+
   /// Shows what came back from the server, and reloads when it worked.
   Future<bool> _apply(Future<Map<String, dynamic>> Function() call) async {
     try {
@@ -93,6 +97,23 @@ class _UsersScreenState extends State<UsersScreen> {
       builder: (_) => _UserForm(user: user),
     );
     if (done == true) await _load();
+  }
+
+  Future<void> _toggle(Map<String, dynamic> user) async {
+    final off = _off(user);
+    final name = s(user['display_name']);
+    final ok = off ||
+        await confirmDialog(
+          context,
+          title: 'وقف الحساب',
+          message: 'توقف حساب "$name"؟ مش هيقدر يدخل لحد ما تشغّله تاني، '
+              'واللي سجله قبل كده بيفضل زي ما هو.',
+          ok: 'وقف الحساب',
+          danger: true,
+        );
+    if (!ok) return;
+    final done = await _apply(() => app.server!.updateUser(id: s(user['id']), active: off));
+    if (done && mounted) toast(context, off ? 'الحساب بقى شغال' : 'الحساب اتوقف');
   }
 
   Future<void> _delete(Map<String, dynamic> user) async {
@@ -140,14 +161,14 @@ class _UsersScreenState extends State<UsersScreen> {
                         for (final u in _users)
                           ListTile(
                             leading: CircleAvatar(
-                              backgroundColor: n(u['active']) == 0 ? AppColors.badSoft : AppColors.primarySoft,
+                              backgroundColor: _off(u) ? AppColors.badSoft : AppColors.primarySoft,
                               child: Icon(
-                                n(u['active']) == 0 ? Icons.person_off_outlined : Icons.person_outline,
-                                color: n(u['active']) == 0 ? AppColors.bad : AppColors.primary,
+                                _off(u) ? Icons.person_off_outlined : Icons.person_outline,
+                                color: _off(u) ? AppColors.bad : AppColors.primary,
                               ),
                             ),
                             title: Text(
-                              '${s(u['display_name'])}${n(u['active']) == 0 ? ' (موقوف)' : ''}',
+                              '${s(u['display_name'])}${_off(u) ? ' (موقوف)' : ''}',
                               style: const TextStyle(fontWeight: FontWeight.w700),
                             ),
                             subtitle: Text(
@@ -157,10 +178,21 @@ class _UsersScreenState extends State<UsersScreen> {
                             ),
                             isThreeLine: true,
                             trailing: PopupMenuButton<String>(
-                              onSelected: (v) => v == 'edit' ? _edit(u) : _delete(u),
-                              itemBuilder: (_) => const [
-                                PopupMenuItem(value: 'edit', child: Text('تعديل')),
-                                PopupMenuItem(value: 'delete', child: Text('حذف', style: TextStyle(color: AppColors.bad))),
+                              onSelected: (v) => switch (v) {
+                                'edit' => _edit(u),
+                                'toggle' => _toggle(u),
+                                _ => _delete(u),
+                              },
+                              itemBuilder: (_) => [
+                                const PopupMenuItem(value: 'edit', child: Text('تعديل')),
+                                PopupMenuItem(
+                                  value: 'toggle',
+                                  child: Text(_off(u) ? 'شغّل الحساب' : 'وقف الحساب'),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'delete',
+                                  child: Text('حذف', style: TextStyle(color: AppColors.bad)),
+                                ),
                               ],
                             ),
                             onTap: () => _edit(u),
@@ -198,7 +230,8 @@ class _UserFormState extends State<_UserForm> {
       ? s(widget.user!['division'])
       : (app.isManager ? Division.appliances : app.sessionDivision);
   late Set<String> _perms = Perm.parse(s(widget.user?['permissions']));
-  late bool _active = widget.user == null || n(widget.user!['active']) != 0;
+  // A new account is working from the moment it is made.
+  late bool _active = widget.user == null || flag(widget.user!['active'], orElse: true);
   bool _busy = false;
 
   bool get _isNew => widget.user == null;
@@ -349,16 +382,24 @@ class _UserFormState extends State<_UserForm> {
                         _perms = next;
                       }),
                     ),
-                  if (!_isNew) ...[
-                    const Divider(),
+                  const Divider(),
+                  if (_isNew)
+                    const ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.check_circle_outline, color: AppColors.good),
+                      title: Text('الحساب هيشتغل على طول'),
+                      subtitle: Text('يقدر يدخل بمجرد ما تديله اسم المستخدم وكلمة المرور'),
+                    )
+                  else
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: const Text('الحساب شغال'),
-                      subtitle: const Text('وقّفه لو الشخص ده مابقاش شغال معاك'),
+                      title: Text(_active ? 'الحساب شغال' : 'الحساب موقوف'),
+                      subtitle: Text(_active
+                          ? 'قفل الزرار ده لو الشخص ده مابقاش شغال معاك'
+                          : 'مش هيقدر يدخل. افتح الزرار عشان يشتغل تاني.'),
                       value: _active,
                       onChanged: (v) => setState(() => _active = v),
                     ),
-                  ],
                 ],
               ),
             ),

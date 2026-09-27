@@ -167,6 +167,25 @@ void main() {
     expect(st[2].stateOn('2026-02-15'), InstallmentState.due);
   });
 
+  group('yes/no values', () {
+    test('read the same whatever they came as', () {
+      // The server answers with real booleans, SQLite with 0 and 1, and an
+      // older phone could send text. Reading a "true" as a number used to
+      // turn every working user account into a stopped one.
+      expect(flag(true), isTrue);
+      expect(flag(false), isFalse);
+      expect(flag(1), isTrue);
+      expect(flag(0), isFalse);
+      expect(flag('true'), isTrue);
+      expect(flag('1'), isTrue);
+      expect(flag('false'), isFalse);
+      // Missing means whatever the caller says it means.
+      expect(flag(null), isFalse);
+      expect(flag(null, orElse: true), isTrue);
+      expect(flag('', orElse: true), isTrue);
+    });
+  });
+
   group('input helpers', () {
     test('arabic digits and separators', () {
       expect(parseNum('١٢٣٫٥'), 123.5);
