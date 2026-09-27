@@ -1,0 +1,62 @@
+name: trade_erp
+description: "ERP for crops and home appliances trading"
+publish_to: 'none'
+
+version: 2.3.0+5
+
+environment:
+  sdk: ^3.11.5
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+  sqflite: ^2.4.2+1
+  path: ^1.9.1
+  supabase: ^2.10.0
+  mobile_scanner: ^7.0.0
+  camera: ^0.11.0+2
+  intl: ^0.20.2
+  pdf: ^3.12.0
+  printing: ^5.14.3
+  url_launcher: ^6.3.2
+  image_picker: ^1.2.3
+  google_mlkit_text_recognition: ^0.16.0
+  http: ^1.6.0
+  excel: ^4.0.6
+  share_plus: ^13.3.0
+  path_provider: ^2.1.6
+  flutter_native_contact_picker: ^0.0.12
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  sqflite_common_ffi: ^2.4.0+3
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/logo.png
+
+  fonts:
+    - family: Ruqaa
+      fonts:
+        - asset: assets/fonts/ArefRuqaa-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/ArefRuqaa-Bold.ttf
+          weight: 700
+    - family: Plex
+      fonts:
+        - asset: assets/fonts/IBMPlexSansArabic-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/IBMPlexSansArabic-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/IBMPlexSansArabic-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/IBMPlexSansArabic-Bold.ttf
+          weight: 700
