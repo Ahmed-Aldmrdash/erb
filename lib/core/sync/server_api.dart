@@ -68,6 +68,40 @@ class ServerApi {
     return r is List ? [for (final x in r) Map<String, dynamic>.from(x as Map)] : const [];
   }
 
+  /// Only the owner account may manage users.
+  Future<Map<String, dynamic>> addUser({
+    required String username,
+    required String password,
+    required String name,
+    required String division,
+    required String permissions,
+  }) async =>
+      _map(await client.rpc('erp_add_user', params: {
+        'p_username': username,
+        'p_password': password,
+        'p_name': name,
+        'p_division': division,
+        'p_permissions': permissions,
+      }));
+
+  Future<Map<String, dynamic>> updateUser({
+    required String id,
+    String? name,
+    String? division,
+    String? permissions,
+    bool? active,
+  }) async =>
+      _map(await client.rpc('erp_update_user', params: {
+        'p_id': id,
+        'p_name': name,
+        'p_division': division,
+        'p_permissions': permissions,
+        'p_active': active,
+      }));
+
+  Future<Map<String, dynamic>> deleteUser(String id) async =>
+      _map(await client.rpc('erp_delete_user', params: {'p_id': id}));
+
   Future<Map<String, dynamic>> changePassword({
     required String department,
     String? oldPassword,
@@ -106,6 +140,18 @@ String serverErrorText(Map<String, dynamic> r) {
       return 'مش مسموح تغير بيانات القسم ده';
     case 'session':
       return 'انتهت الجلسة، سجل دخول تاني';
+    case 'disabled':
+      return 'الحساب ده موقوف. كلم صاحب المحل.';
+    case 'last_owner':
+      return 'لازم يفضل حساب واحد على الأقل شايف القسمين وبكل الصلاحيات';
+    case 'self':
+      return 'مينفعش تحذف الحساب اللي انت داخل بيه';
+    case 'missing':
+      return 'اكتب اسم المستخدم والاسم';
+    case 'department':
+      return 'الحساب ده مش موجود';
+    case 'division':
+      return 'اختار القسم';
   }
   return 'حصلت مشكلة: ${r['error'] ?? 'غير معروفة'}';
 }

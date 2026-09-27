@@ -9,6 +9,7 @@ import '../data/activity_repo.dart';
 import '../data/appliances_repo.dart';
 import '../data/crops_repo.dart';
 import '../data/notes_repo.dart';
+import '../data/permissions.dart';
 import '../data/reports_repo.dart';
 import 'config.dart';
 import 'db/app_db.dart';
@@ -73,6 +74,13 @@ class AppState extends ChangeNotifier {
   String get sessionDivision => isCloud ? prefs.get('session_division') : Division.all;
   bool get isManager => sessionDivision == Division.all;
   String get departmentName => isCloud ? prefs.get('session_name') : 'بدون سيرفر';
+
+  /// What this login may open. Empty means no limits (the accounts of the
+  /// business itself, and every phone working without a server).
+  Set<String> get permissions => isCloud ? Perm.parse(prefs.get('session_perms')) : const {};
+
+  /// Whether this login may open a section (see [Perm]).
+  bool can(String section) => permissions.isEmpty || permissions.contains(section);
 
   /// The division whose data is open now.
   String get division => _db?.division ?? prefs.get('division', Division.appliances);
@@ -251,6 +259,7 @@ class AppState extends ChangeNotifier {
     await prefs.set('session_token', token);
     await prefs.set('session_division', div);
     await prefs.set('session_name', s(r['display_name']));
+    await prefs.set('session_perms', s(r['permissions']));
     await prefs.set('username', username.trim());
     if (r['device_code'] != null) await prefs.set('device_code', '${r['device_code']}');
     await setPerson(name);
@@ -312,6 +321,7 @@ class AppState extends ChangeNotifier {
       await prefs.set('session_token', null);
       await prefs.set('session_division', null);
       await prefs.set('session_name', null);
+      await prefs.set('session_perms', null);
       server?.setToken(null);
       await _toLoginOrSetup();
     } else {

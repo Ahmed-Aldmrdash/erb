@@ -4,25 +4,28 @@ import '../core/util/format.dart';
 
 /// كود الصنف والملصق.
 ///
-/// Every product gets a number of its own that never changes ([newCode]): four
+/// Every product gets a number of its own that never changes ([newCode]): six
 /// random digits, so all the numbers are the same length and nobody can guess
 /// how many products the showroom has.
 ///
 /// What gets printed as a barcode is that number **followed by the price**
-/// ([labelBarcode]): `4821` + `04500` = `482104500`. Whoever is standing in
-/// the showroom reads the price off the end of the number, and the scanner
-/// still finds the product by the part in front, even after the price changed
-/// and the label on the box became old ([priceOnLabel]).
+/// ([labelBarcode]): `482137` + `04500` = `48213704500` — eleven digits, the
+/// length of an ordinary shop barcode, printed in one piece with nothing to
+/// show where the price begins. Whoever works in the showroom knows the last
+/// five digits are the price; to anybody else it is just a barcode.
+///
+/// The scanner still finds the product by the part in front, even after the
+/// price changed and the label on the box became old ([priceOnLabel]).
 class ProductCode {
   /// Digits of the product's own number.
-  static const digits = 4;
+  static const digits = 6;
 
   /// Digits the price takes on the label (up to 99,999 pounds).
   static const priceDigits = 5;
 
   /// Longest number we treat as one of ours. Anything longer is the barcode
   /// printed on the box by the factory: it goes on the label as it is.
-  static const maxOwnCode = 6;
+  static const maxOwnCode = 7;
 
   static final _random = Random();
 
@@ -53,11 +56,9 @@ class ProductCode {
     return code + text.padLeft(max(priceDigits, text.length), '0');
   }
 
-  /// How the number reads on the label: "4821 04500".
-  static String spaced(String code, num price) {
-    final full = labelBarcode(code, price);
-    return full.length > code.length ? '$code ${full.substring(code.length)}' : full;
-  }
+  /// The number as it is printed under the bars: one piece, no space, so the
+  /// price does not stand out to a customer reading the sticker.
+  static String printed(String code, num price) => labelBarcode(code, price);
 
   /// The price written at the end of a scanned label, or null when the code
   /// was scanned on its own (or is a factory barcode).

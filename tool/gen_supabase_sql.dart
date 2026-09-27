@@ -123,6 +123,12 @@ create table if not exists public.departments (
   updated_at timestamptz not null default now()
 );
 create unique index if not exists departments_username_idx on public.departments (lower(username));
+-- What the user is allowed to open, as a comma separated list of sections
+-- (pos, stock, sales, accounts, money, reports, settings). Empty means
+-- everything, which is what the first accounts of the business get.
+alter table public.departments add column if not exists permissions text not null default '';
+-- Somebody who left the shop: kept for the history, cannot sign in.
+alter table public.departments add column if not exists active boolean not null default true;
 
 create table if not exists public.sessions (
   token_hash text primary key,
@@ -238,6 +244,7 @@ begin
       'seconds', ceil(extract(epoch from (a.locked_until - now())))::int);
   end if;
   select * into d from public.departments where lower(username) = v_user;
+  if d.id is not null and not d.active then return json_build_object('error', 'disabled'); end if;
   if d.id is null or d.password_hash <> extensions.crypt(coalesce(p_password, ''), d.password_hash) then
     insert into public.login_attempts as la (username, failures) values (v_user, 1)
     on conflict (username) do update set
@@ -260,7 +267,8 @@ begin
     end if;
   end if;
   return json_build_object('token', v_token, 'department', d.id, 'division', d.division,
-                           'display_name', d.display_name, 'device_code', v_code);
+                           'display_name', d.display_name, 'device_code', v_code,
+                           'permissions', d.permissions);
 end $$;
 
 create or replace function public.erp_logout() returns void
@@ -272,10 +280,90 @@ $$;
 create or replace function public.erp_departments() returns json
 language sql stable security definer set search_path = public, extensions as $$
   select coalesce(json_agg(json_build_object('id', d.id, 'username', d.username,
-                                             'display_name', d.display_name) order by d.id), '[]'::json)
+                                             'display_name', d.display_name,
+                                             'division', d.division,
+                                             'permissions', d.permissions,
+                                             'active', d.active) order by d.id), '[]'::json)
   from public.departments d
   where public.erp_session_division() = 'all' or d.division = public.erp_session_division()
 $$;
+
+-- Users: only the owner account (division 'all') adds, changes or removes
+-- them. The permissions decide what the phone shows; which business's data a
+-- user reaches is still decided by the division of his login.
+create or replace function public.erp_add_user(
+  p_username text, p_password text, p_name text, p_division text, p_permissions text
+) returns json
+language plpgsql security definer set search_path = public, extensions as $$
+declare
+  v_id text;
+begin
+  if public.erp_session_division() <> 'all' then return json_build_object('error', 'forbidden'); end if;
+  if coalesce(trim(p_username), '') = '' or coalesce(trim(p_name), '') = '' then
+    return json_build_object('error', 'missing');
+  end if;
+  if coalesce(length(p_password), 0) < 6 then return json_build_object('error', 'short'); end if;
+  if p_division not in ('crops', 'appliances', 'all') then return json_build_object('error', 'division'); end if;
+  if exists (select 1 from public.departments where lower(username) = lower(trim(p_username))) then
+    return json_build_object('error', 'duplicate');
+  end if;
+  v_id := 'u_' || encode(extensions.gen_random_bytes(8), 'hex');
+  insert into public.departments (id, username, password_hash, display_name, division, permissions)
+  values (v_id, trim(p_username), extensions.crypt(p_password, extensions.gen_salt('bf', 8)),
+          trim(p_name), p_division, coalesce(p_permissions, ''));
+  return json_build_object('ok', true, 'id', v_id);
+end $$;
+
+create or replace function public.erp_update_user(
+  p_id text, p_name text, p_division text, p_permissions text, p_active boolean
+) returns json
+language plpgsql security definer set search_path = public, extensions as $$
+declare
+  d public.departments;
+begin
+  if public.erp_session_division() <> 'all' then return json_build_object('error', 'forbidden'); end if;
+  select * into d from public.departments where id = p_id;
+  if d.id is null then return json_build_object('error', 'department'); end if;
+  if p_division is not null and p_division not in ('crops', 'appliances', 'all') then
+    return json_build_object('error', 'division');
+  end if;
+  -- The business must keep at least one account that can do everything.
+  if d.division = 'all'
+     and (coalesce(p_active, d.active) = false or coalesce(p_division, d.division) <> 'all')
+     and (select count(*) from public.departments where division = 'all' and active) <= 1 then
+    return json_build_object('error', 'last_owner');
+  end if;
+  update public.departments set
+    display_name = coalesce(nullif(trim(p_name), ''), display_name),
+    division = coalesce(p_division, division),
+    permissions = coalesce(p_permissions, permissions),
+    active = coalesce(p_active, active),
+    updated_at = now()
+  where id = d.id;
+  -- Whatever changed, the user signs in again and gets it.
+  delete from public.sessions where department_id = d.id;
+  return json_build_object('ok', true);
+end $$;
+
+create or replace function public.erp_delete_user(p_id text) returns json
+language plpgsql security definer set search_path = public, extensions as $$
+declare
+  d public.departments;
+begin
+  if public.erp_session_division() <> 'all' then return json_build_object('error', 'forbidden'); end if;
+  select * into d from public.departments where id = p_id;
+  if d.id is null then return json_build_object('error', 'department'); end if;
+  if exists (select 1 from public.sessions
+             where token_hash = public.erp_current_token_hash() and department_id = d.id) then
+    return json_build_object('error', 'self');
+  end if;
+  if d.division = 'all'
+     and (select count(*) from public.departments where division = 'all' and active) <= 1 then
+    return json_build_object('error', 'last_owner');
+  end if;
+  delete from public.departments where id = d.id;
+  return json_build_object('ok', true);
+end $$;
 
 -- Change a department's username / password. Everybody else signed in to
 -- that department has to sign in again.
@@ -335,6 +423,9 @@ grant execute on function public.erp_session_info() to anon, authenticated;
 grant execute on function public.erp_setup_needed() to anon, authenticated;
 grant execute on function public.erp_setup(text, text, text, text, text, text) to anon, authenticated;
 grant execute on function public.erp_login(text, text, uuid, text, text) to anon, authenticated;
+grant execute on function public.erp_add_user(text, text, text, text, text) to anon, authenticated;
+grant execute on function public.erp_update_user(text, text, text, text, boolean) to anon, authenticated;
+grant execute on function public.erp_delete_user(text) to anon, authenticated;
 grant execute on function public.erp_logout() to anon, authenticated;
 grant execute on function public.erp_departments() to anon, authenticated;
 grant execute on function public.erp_change_password(text, text, text, text) to anon, authenticated;

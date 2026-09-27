@@ -102,16 +102,19 @@ void main() {
   });
 
   test('the label carries the price at the end of the number', () async {
-    expect(ProductCode.labelBarcode('4821', 4500), '482104500');
-    expect(ProductCode.labelBarcode('4821', 850), '482100850');
-    expect(ProductCode.labelBarcode('4821', 26840), '482126840');
-    expect(ProductCode.spaced('4821', 4500), '4821 04500');
+    // Eleven digits like an ordinary shop barcode: six for the product,
+    // five for the price, printed as one piece.
+    expect(ProductCode.labelBarcode('482137', 4500), '48213704500');
+    expect(ProductCode.labelBarcode('482137', 850), '48213700850');
+    expect(ProductCode.labelBarcode('482137', 26840), '48213726840');
+    expect(ProductCode.printed('482137', 4500).length, 11);
+    expect(ProductCode.printed('482137', 4500), contains('04500'));
     // No price yet, or one too big to fit: the number goes out on its own.
-    expect(ProductCode.labelBarcode('4821', 0), '4821');
-    expect(ProductCode.labelBarcode('4821', 1200000), '4821');
+    expect(ProductCode.labelBarcode('482137', 0), '482137');
+    expect(ProductCode.labelBarcode('482137', 1200000), '482137');
 
-    expect(ProductCode.priceOnLabel('482104500', '4821'), 4500);
-    expect(ProductCode.priceOnLabel('4821', '4821'), isNull);
+    expect(ProductCode.priceOnLabel('48213704500', '482137'), 4500);
+    expect(ProductCode.priceOnLabel('482137', '482137'), isNull);
     expect(ProductCode.priceOnLabel('6221000000011', '6221000000011'), isNull);
     // The barcode the factory printed on the box goes out untouched.
     expect(ProductCode.labelBarcode('6221000000011', 1150), '6221000000011');

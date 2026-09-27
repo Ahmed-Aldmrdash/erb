@@ -65,7 +65,7 @@ class ProductDetailScreen extends StatelessWidget {
                                 Text(code, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.primary)),
                                 if (retail > 0)
                                   Text(
-                                    'على الملصق: ${ProductCode.spaced(code, retail)}',
+                                    'على الملصق: ${ProductCode.printed(code, retail)}',
                                     style: const TextStyle(color: AppColors.muted, fontSize: 12),
                                   ),
                               ],

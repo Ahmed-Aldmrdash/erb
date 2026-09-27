@@ -480,22 +480,9 @@ class PdfDocs {
                     drawText: false,
                   ),
                 ),
-                // The number, then the price: the product's own digits stay
-                // light and the price digits are black and bold, so anyone
-                // holding the box can read the price off the end.
-                pw.Directionality(
-                  textDirection: pw.TextDirection.ltr,
-                  child: pw.Row(
-                    mainAxisAlignment: pw.MainAxisAlignment.center,
-                    children: [
-                      pw.Text(code, style: _t(8.5, color: _grey)),
-                      if (data.length > code.length) ...[
-                        pw.SizedBox(width: 5),
-                        pw.Text(data.substring(code.length), style: _t(9.5, bold: true)),
-                      ],
-                    ],
-                  ),
-                ),
+                // One number, one size, one colour: the last five digits are
+                // the price, and only the people working here know that.
+                pw.Text(ProductCode.printed(code, price), style: _t(9)),
               ],
             ),
           ),

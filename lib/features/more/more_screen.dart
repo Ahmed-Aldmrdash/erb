@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/app_state.dart';
 import '../../core/db/schema.dart';
+import '../../data/permissions.dart';
 import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
 import '../accounts/cash_boxes.dart';
@@ -22,6 +23,7 @@ import '../reports/reports_screen.dart';
 import '../reports/season_report_screen.dart';
 import '../settings/backup_screen.dart';
 import '../settings/company_settings.dart';
+import '../settings/users_screen.dart';
 import '../settings/sync_screen.dart';
 import '../stock/stocktake_screen.dart';
 
@@ -53,19 +55,22 @@ class MoreScreen extends StatelessWidget {
                 color: AppColors.muted,
                 onTap: () => push(context, const ActivityScreen()),
               ),
-              ActionTile(
-                icon: Icons.insights_outlined,
-                label: 'التقارير والأرباح',
-                color: AppColors.good,
-                onTap: () => push(context, const ReportsScreen()),
-              ),
-              ActionTile(
-                icon: Icons.call_received,
-                label: 'المديونيات',
-                color: AppColors.good,
-                onTap: () => push(context, const PartiesScreen(balanceFilter: 1)),
-              ),
+              if (app.can(Perm.reports))
+                ActionTile(
+                  icon: Icons.insights_outlined,
+                  label: 'التقارير والأرباح',
+                  color: AppColors.good,
+                  onTap: () => push(context, const ReportsScreen()),
+                ),
+              if (app.can(Perm.accounts))
+                ActionTile(
+                  icon: Icons.call_received,
+                  label: 'المديونيات',
+                  color: AppColors.good,
+                  onTap: () => push(context, const PartiesScreen(balanceFilter: 1)),
+                ),
             ]),
+            if (app.can(Perm.money)) ...[
             const SectionTitle('الفلوس'),
             ActionGrid(columns: 4, children: [
               ActionTile(
@@ -92,7 +97,9 @@ class MoreScreen extends StatelessWidget {
                 onTap: () => push(context, const VouchersScreen(title: 'حركات الفلوس')),
               ),
             ]),
+            ],
             if (app.isCrops) ..._trade(context) else ..._showroom(context),
+            if (app.can(Perm.settings)) ...[
             const SectionTitle('الإعدادات'),
             TileGroup(children: [
               ListTile(
@@ -125,6 +132,15 @@ class MoreScreen extends StatelessWidget {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => push(context, const AccountScreen()),
               ),
+              // Users live on the server: a phone working on its own has none.
+              if (app.isCloud && app.isManager)
+                ListTile(
+                  leading: const Icon(Icons.people_alt_outlined),
+                  title: const Text('المستخدمين والصلاحيات'),
+                  subtitle: const Text('ضيف حساب جديد وحدد يشوف إيه'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => push(context, const UsersScreen()),
+                ),
               if (app.isManager)
                 ListTile(
                   leading: Icon(Icons.swap_horiz, color: app.isCrops ? AppColors.appliances : AppColors.crops),
@@ -134,10 +150,19 @@ class MoreScreen extends StatelessWidget {
                   onTap: () => app.switchDivision(_other),
                 ),
             ]),
+            ] else if (app.isManager)
+              TileGroup(children: [
+                ListTile(
+                  leading: Icon(Icons.swap_horiz, color: app.isCrops ? AppColors.appliances : AppColors.crops),
+                  title: Text('افتح ${Division.names[_other]}'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => app.switchDivision(_other),
+                ),
+              ]),
             const Padding(
               padding: EdgeInsets.all(20),
               child: Text(
-                'الدمرداش - الإصدار 2.4',
+                'الدمرداش - الإصدار 2.5',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: AppColors.muted),
               ),
@@ -187,6 +212,7 @@ class MoreScreen extends StatelessWidget {
       );
 
   List<Widget> _showroom(BuildContext context) => [
+        if (app.can(Perm.sales)) ...[
         const SectionTitle('البيع والشراء'),
         ActionGrid(columns: 4, children: [
           ActionTile(
@@ -213,6 +239,8 @@ class MoreScreen extends StatelessWidget {
             onTap: () => push(context, const InstallmentsScreen()),
           ),
         ]),
+        ],
+        if (app.can(Perm.stock)) ...[
         const SectionTitle('المخزن'),
         ActionGrid(columns: 4, children: [
           ActionTile(
@@ -245,9 +273,11 @@ class MoreScreen extends StatelessWidget {
             onTap: () => push(context, const WarehousesScreen()),
           ),
         ]),
+        ],
       ];
 
   List<Widget> _trade(BuildContext context) => [
+        if (app.can(Perm.sales) || app.can(Perm.stock)) ...[
         const SectionTitle('المحاصيل'),
         ActionGrid(columns: 4, children: [
           ActionTile(
@@ -304,5 +334,6 @@ class MoreScreen extends StatelessWidget {
             onTap: () => push(context, const PartiesScreen(kind: 'trader')),
           ),
         ]),
+        ],
       ];
 }

@@ -2,7 +2,7 @@ name: trade_erp
 description: "ERP for crops and home appliances trading"
 publish_to: 'none'
 
-version: 2.4.0+6
+version: 2.5.0+7
 
 environment:
   sdk: ^3.11.5

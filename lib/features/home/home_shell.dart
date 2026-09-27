@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/app_state.dart';
+import '../../data/permissions.dart';
 import '../../ui/widgets.dart';
 import '../accounts/parties_screen.dart';
 import '../appliances/products_screen.dart';
@@ -41,21 +42,31 @@ class _HomeShellState extends State<HomeShell> {
     });
   }
 
-  Map<String, _Tab> get _tabs => app.isCrops
-      ? const {
-          'home': _Tab('الرئيسية', Icons.space_dashboard_outlined, Icons.space_dashboard, DashboardScreen()),
-          'ops': _Tab('العمليات', Icons.local_shipping_outlined, Icons.local_shipping, CropTradesScreen(asTab: true)),
-          'stock': _Tab('المخزن', Icons.warehouse_outlined, Icons.warehouse, CropStockScreen()),
-          'accounts': _Tab('الحسابات', Icons.menu_book_outlined, Icons.menu_book, PartiesScreen(asTab: true)),
-          'more': _Tab('المزيد', Icons.grid_view_outlined, Icons.grid_view_rounded, MoreScreen()),
-        }
-      : const {
-          'home': _Tab('الرئيسية', Icons.space_dashboard_outlined, Icons.space_dashboard, DashboardScreen()),
-          'pos': _Tab('الكاشير', Icons.point_of_sale_outlined, Icons.point_of_sale, PosScreen()),
-          'stock': _Tab('المخزن', Icons.inventory_2_outlined, Icons.inventory_2, ProductsScreen(asTab: true)),
-          'accounts': _Tab('الحسابات', Icons.menu_book_outlined, Icons.menu_book, PartiesScreen(asTab: true)),
-          'more': _Tab('المزيد', Icons.grid_view_outlined, Icons.grid_view_rounded, MoreScreen()),
-        };
+  /// The tabs this login may open. A cashier who is only allowed the cashier
+  /// and the stock simply does not see the others.
+  Map<String, _Tab> get _tabs {
+    final all = app.isCrops
+        ? const {
+            'home': (Perm.pos, _Tab('الرئيسية', Icons.space_dashboard_outlined, Icons.space_dashboard, DashboardScreen())),
+            'ops': (Perm.sales, _Tab('العمليات', Icons.local_shipping_outlined, Icons.local_shipping, CropTradesScreen(asTab: true))),
+            'stock': (Perm.stock, _Tab('المخزن', Icons.warehouse_outlined, Icons.warehouse, CropStockScreen())),
+            'accounts': (Perm.accounts, _Tab('الحسابات', Icons.menu_book_outlined, Icons.menu_book, PartiesScreen(asTab: true))),
+            'more': (Perm.pos, _Tab('المزيد', Icons.grid_view_outlined, Icons.grid_view_rounded, MoreScreen())),
+          }
+        : const {
+            'home': (Perm.pos, _Tab('الرئيسية', Icons.space_dashboard_outlined, Icons.space_dashboard, DashboardScreen())),
+            'pos': (Perm.pos, _Tab('الكاشير', Icons.point_of_sale_outlined, Icons.point_of_sale, PosScreen())),
+            'stock': (Perm.stock, _Tab('المخزن', Icons.inventory_2_outlined, Icons.inventory_2, ProductsScreen(asTab: true))),
+            'accounts': (Perm.accounts, _Tab('الحسابات', Icons.menu_book_outlined, Icons.menu_book, PartiesScreen(asTab: true))),
+            'more': (Perm.pos, _Tab('المزيد', Icons.grid_view_outlined, Icons.grid_view_rounded, MoreScreen())),
+          };
+    // The home and the "more" tabs are always there: they only show what the
+    // user is allowed to open anyway.
+    return {
+      for (final e in all.entries)
+        if (e.key == 'home' || e.key == 'more' || app.can(e.value.$1)) e.key: e.value.$2,
+    };
+  }
 
   @override
   Widget build(BuildContext context) => ValueListenableBuilder<String>(
