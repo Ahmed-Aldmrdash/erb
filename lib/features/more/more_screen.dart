@@ -49,12 +49,15 @@ class MoreScreen extends StatelessWidget {
                   onTap: () => push(context, const NotesScreen()),
                 ),
               ),
-              ActionTile(
-                icon: Icons.history,
-                label: 'سجل العمليات',
-                color: AppColors.muted,
-                onTap: () => push(context, const ActivityScreen()),
-              ),
+              // Who did what in the whole business: for whoever follows the
+              // work, not for somebody who only stands at the cashier.
+              if (app.can(Perm.reports) || app.can(Perm.settings))
+                ActionTile(
+                  icon: Icons.history,
+                  label: 'سجل العمليات',
+                  color: AppColors.muted,
+                  onTap: () => push(context, const ActivityScreen()),
+                ),
               if (app.can(Perm.reports))
                 ActionTile(
                   icon: Icons.insights_outlined,
@@ -166,7 +169,7 @@ class MoreScreen extends StatelessWidget {
             const Padding(
               padding: EdgeInsets.all(20),
               child: Text(
-                'الدمرداش - الإصدار 2.5.2',
+                'الدمرداش - الإصدار 2.6',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: AppColors.muted),
               ),
