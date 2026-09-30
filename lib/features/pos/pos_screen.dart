@@ -390,15 +390,37 @@ class _CartSheetState extends State<_CartSheet> {
   Future<void> _editLine(CartLine line) async {
     final q = TextEditingController(text: numText(line.qty));
     final p = TextEditingController(text: numText(line.price));
+    final listed = cart.priceOf(line.product);
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
         title: Text(s(line.product['name'])),
-        content: Row(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Expanded(child: NumField(controller: q, label: 'الكمية')),
-            const SizedBox(width: 10),
-            Expanded(flex: 2, child: NumField(controller: p, label: 'السعر', suffix: currency)),
+            Row(
+              children: [
+                Expanded(child: NumField(controller: q, label: 'الكمية')),
+                const SizedBox(width: 10),
+                Expanded(flex: 2, child: NumField(controller: p, label: 'السعر في البيعة دي', suffix: currency)),
+              ],
+            ),
+            const Gap(8),
+            // The price of the goods on the shelf stays where it is: what is
+            // typed here is what this customer pays today, nothing more.
+            Text(
+              'سعر الصنف المسجل ${money(listed)}، وهيفضل زي ما هو.',
+              style: const TextStyle(color: AppColors.muted, fontSize: 12.5, height: 1.4),
+            ),
+            if (listed > 0)
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: TextButton(
+                  onPressed: () => p.text = numText(listed),
+                  child: const Text('رجّع السعر المسجل'),
+                ),
+              ),
           ],
         ),
         actions: [
@@ -670,6 +692,11 @@ class _CartSheetState extends State<_CartSheet> {
                   children: [
                     Text(s(l.product['name']), style: const TextStyle(fontWeight: FontWeight.w700)),
                     Text('${money(l.price)} للقطعة', style: const TextStyle(color: AppColors.muted, fontSize: 12.5)),
+                    if (cart.priceOf(l.product) > 0 && l.price != cart.priceOf(l.product))
+                      Text(
+                        'سعر خاص • المسجل ${money(cart.priceOf(l.product))}',
+                        style: const TextStyle(color: AppColors.warn, fontSize: 12),
+                      ),
                     if (over)
                       Text('المتاح ${qty(l.stock)} بس', style: const TextStyle(color: AppColors.bad, fontSize: 12.5)),
                   ],
@@ -853,9 +880,12 @@ class _ProductSheetState extends State<_ProductSheet> {
               Expanded(
                 child: NumField(
                   controller: _price,
-                  label: 'السعر للقطعة',
+                  label: 'السعر في البيعة دي',
                   suffix: currency,
                   onChanged: (_) => setState(() {}),
+                  helper: parseNum(_price.text) == cart.priceOf(_p)
+                      ? 'سعر الصنف المسجل'
+                      : 'المسجل ${money(cart.priceOf(_p))} • التغيير للبيعة دي بس',
                 ),
               ),
               const SizedBox(width: 10),
@@ -908,7 +938,7 @@ class _ProductSheetState extends State<_ProductSheet> {
                     await _reload();
                   },
                   icon: const Icon(Icons.price_change_outlined),
-                  label: const Text('تعديل سعر الصنف'),
+                  label: const Text('غيّر سعر الصنف نفسه'),
                 ),
               ),
               Expanded(

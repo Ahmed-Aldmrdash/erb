@@ -80,4 +80,28 @@ void main() {
     await app.prefs.set('label_queue', '{"": 3, "x": 0, "ok": 2}');
     expect(LabelQueue.items(), {'ok': 2});
   });
+
+  test('goods that were on the shelves before all go in at once', () async {
+    final fridge = await app.appliances.saveProduct({'name': 'ثلاجة'});
+    final fan = await app.appliances.saveProduct({'name': 'مروحة'});
+    final oven = await app.appliances.saveProduct({'name': 'فرن'});
+
+    // The fan was already waiting with a number somebody typed by hand.
+    await LabelQueue.add(fan, 9);
+
+    // Now the whole showroom goes in: a sticker for every piece on the shelf.
+    final added = await LabelQueue.setAll({fridge: 4, fan: 2, oven: 1});
+    expect(added, 3);
+    expect(LabelQueue.items(), {fan: 2, fridge: 4, oven: 1});
+
+    // Asking a second time gives the same list, not double.
+    await LabelQueue.setAll({fridge: 4, fan: 2, oven: 1});
+    expect(LabelQueue.total, 7);
+
+    // A product that came in later keeps its place next to the old ones.
+    final heater = await app.appliances.saveProduct({'name': 'دفاية'});
+    await LabelQueue.add(heater, 3);
+    expect(LabelQueue.items()[heater], 3);
+    expect(LabelQueue.total, 10);
+  });
 }

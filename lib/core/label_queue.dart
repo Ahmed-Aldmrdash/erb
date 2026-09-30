@@ -46,6 +46,20 @@ class LabelQueue {
 
   static Future<void> remove(String productId) => setCount(productId, 0);
 
+  /// Puts a whole set of products in the list at once, each with the number
+  /// of stickers it needs. Asking twice gives the same list, not double.
+  static Future<int> setAll(Map<String, int> counts) async {
+    final all = items();
+    var touched = 0;
+    for (final e in counts.entries) {
+      if (e.key.isEmpty || e.value <= 0) continue;
+      all[e.key] = e.value;
+      touched++;
+    }
+    await _save(all);
+    return touched;
+  }
+
   static Future<void> clear() => _save({});
 
   static int get total => items().values.fold(0, (a, b) => a + b);

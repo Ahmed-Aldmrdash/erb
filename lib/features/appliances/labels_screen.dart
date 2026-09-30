@@ -52,6 +52,35 @@ class _LabelsScreenState extends State<LabelsScreen> {
     }
   }
 
+  /// Everything on the shelves at once: the answer for a showroom that was
+  /// already full of goods before the labels screen existed.
+  Future<void> _addEverything() async {
+    final products = await app.appliances.products();
+    final withStock = {
+      for (final p in products)
+        if (n(p['stock']) >= 1) s(p['id']): n(p['stock']).round(),
+    };
+    if (!mounted) return;
+    if (withStock.isEmpty) {
+      toast(context, 'مفيش أصناف عليها رصيد في المخزن', error: true);
+      return;
+    }
+    final empty = products.length - withStock.length;
+    final stickers = withStock.values.fold<int>(0, (a, b) => a + b);
+    final ok = await confirmDialog(
+      context,
+      title: 'ضيف كل اللي في المخزن',
+      message: '${withStock.length} صنف، و$stickers ملصق (ملصق لكل قطعة). '
+          'الأصناف اللي في القايمة هتتظبط على نفس عدد القطع.'
+          '${empty > 0 ? '\n\n($empty صنف خلصان مش هيتحطوا، اطبعلهم ملصق أول ما يجوا.)' : ''}',
+      ok: 'ضيفهم',
+    );
+    if (!ok) return;
+    await LabelQueue.setAll(withStock);
+    await _load();
+    if (mounted) toast(context, 'اتحجز $stickers ملصق لـ ${withStock.length} صنف');
+  }
+
   Future<void> _addProduct() async {
     final p = await pickProduct(context);
     if (p == null || !mounted) return;
@@ -96,6 +125,11 @@ class _LabelsScreenState extends State<LabelsScreen> {
         appBar: AppBar(
           title: const Text('ملصقات الأسعار'),
           actions: [
+            IconButton(
+              tooltip: 'ضيف كل اللي في المخزن',
+              onPressed: _addEverything,
+              icon: const Icon(Icons.playlist_add),
+            ),
             if (_rows.isNotEmpty)
               TextButton.icon(
                 onPressed: () async {
@@ -126,9 +160,9 @@ class _LabelsScreenState extends State<LabelsScreen> {
             : _rows.isEmpty
                 ? EmptyView(
                     icon: Icons.local_offer_outlined,
-                    text: 'القايمة فاضية. ضيف الأصناف اللي عايز تطبعلها ملصقات بالسعر والكود.',
-                    actionLabel: 'ضيف صنف',
-                    onAction: _addProduct,
+                    text: 'القايمة فاضية. ضيف كل اللي في المخزن مرة واحدة، أو صنف صنف.',
+                    actionLabel: 'ضيف كل اللي في المخزن',
+                    onAction: _addEverything,
                   )
                 : ListView(
                     padding: const EdgeInsets.only(bottom: 90),

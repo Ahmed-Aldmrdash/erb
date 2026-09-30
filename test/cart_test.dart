@@ -6,6 +6,7 @@ import 'package:trade_erp/core/app_state.dart';
 import 'package:trade_erp/core/db/prefs.dart';
 import 'package:trade_erp/core/db/schema.dart';
 import 'package:trade_erp/core/util/format.dart';
+import 'package:trade_erp/data/appliances_repo.dart';
 import 'package:trade_erp/features/pos/pos_cart.dart';
 
 /// The cashier's basket is written down on the phone, so a sale being rung up
@@ -102,6 +103,31 @@ void main() {
     expect(cart.isEmpty, isTrue);
     expect(cart.customer, isNull);
     expect(cart.discount, 0);
+  });
+
+  test('haggling on a sale does not touch the price of the goods', () async {
+    final id = await addProduct(retail: 13000);
+    final cart = PosCart.instance;
+    final product = (await app.appliances.product(id))!;
+    cart.add(product, 1);
+
+    // The customer talked the price down to 12,500 for today.
+    cart.setPrice(cart.lines.first, 12500);
+    expect(cart.total, 12500);
+
+    final invoice = await app.appliances.saveInvoice(
+      header: {'kind': 'sale', 'date': todayStr(), 'total': cart.total, 'paid': cart.total},
+      lines: [InvoiceLineDraft(productId: id, name: 'ثلاجة', qty: 1, price: 12500)],
+    );
+
+    // The invoice carries the price he agreed on...
+    final lines = await app.appliances.invoiceLines(invoice);
+    expect(n(lines.first['price']), 12500);
+
+    // ...while the next customer still finds the goods at 13,000.
+    final after = (await app.appliances.product(id))!;
+    expect(n(after['retail_price']), 13000);
+    expect(cart.priceOf(after), 13000);
   });
 
   test('a product deleted meanwhile drops out instead of breaking the cashier', () async {
