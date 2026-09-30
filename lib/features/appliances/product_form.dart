@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/app_state.dart';
 import '../../core/db/app_db.dart';
+import '../../core/label_queue.dart';
 import '../../core/util/format.dart';
 import '../../data/calc.dart';
 import '../../ui/pickers.dart';
@@ -136,8 +137,19 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       });
     }
 
+    // A new product needs a sticker on the box, so it goes into the labels
+    // list by itself — wherever it was added from (المخزن، الكاشير، من جوه
+    // الفاتورة). One label for every piece that came in.
+    if (widget.id == null) {
+      await LabelQueue.add(id, initQty >= 1 ? initQty.round() : 1);
+    }
+
     final row = await app.appliances.product(id);
-    if (mounted) Navigator.pop(context, row);
+    if (!mounted) return;
+    if (widget.id == null) {
+      toast(context, 'اتسجل الصنف، وهتلاقيه في قايمة ملصقات الأسعار');
+    }
+    Navigator.pop(context, row);
   }
 
   Future<void> _delete() async {

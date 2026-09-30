@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/app_state.dart';
 import '../../core/db/app_db.dart';
+import '../../core/label_queue.dart';
 import '../../core/util/format.dart';
 import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
@@ -96,16 +97,18 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 }
                 if (mounted) setState(() {});
               },
-              itemBuilder: (_) => const [
+              itemBuilder: (_) => [
                 PopupMenuItem(
                   value: 'labels',
                   child: ListTile(
                     contentPadding: EdgeInsets.zero,
-                    leading: Icon(Icons.local_offer_outlined),
-                    title: Text('ملصقات الأسعار والباركود'),
+                    leading: const Icon(Icons.local_offer_outlined),
+                    title: Text(LabelQueue.total > 0
+                        ? 'ملصقات الأسعار (${LabelQueue.total} مستني)'
+                        : 'ملصقات الأسعار والباركود'),
                   ),
                 ),
-                PopupMenuItem(
+                const PopupMenuItem(
                   value: 'stocktake',
                   child: ListTile(
                     contentPadding: EdgeInsets.zero,
@@ -113,7 +116,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     title: Text('جرد المخزن'),
                   ),
                 ),
-                PopupMenuItem(
+                const PopupMenuItem(
                   value: 'codes',
                   child: ListTile(
                     contentPadding: EdgeInsets.zero,

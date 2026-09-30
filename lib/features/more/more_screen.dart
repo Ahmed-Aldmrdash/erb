@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/app_state.dart';
 import '../../core/db/schema.dart';
+import '../../core/label_queue.dart';
 import '../../data/permissions.dart';
 import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
@@ -169,7 +170,7 @@ class MoreScreen extends StatelessWidget {
             const Padding(
               padding: EdgeInsets.all(20),
               child: Text(
-                'الدمرداش - الإصدار 2.6',
+                'الدمرداش - الإصدار 2.6.1',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: AppColors.muted),
               ),
@@ -259,6 +260,8 @@ class MoreScreen extends StatelessWidget {
             icon: Icons.local_offer_outlined,
             label: 'ملصقات الأسعار',
             color: AppColors.appliances,
+            // How many stickers are waiting to be printed.
+            badge: LabelQueue.total,
             onTap: () => push(context, const LabelsScreen()),
           ),
           ActionTile(
