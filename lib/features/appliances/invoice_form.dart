@@ -3,6 +3,7 @@ import 'package:flutter_native_contact_picker/flutter_native_contact_picker.dart
 
 import '../../core/app_state.dart';
 import '../../core/db/app_db.dart';
+import '../../core/label_queue.dart';
 import '../../core/util/format.dart';
 import '../../data/appliances_repo.dart';
 import '../../data/calc.dart';
@@ -255,8 +256,16 @@ class _InvoiceFormState extends State<InvoiceForm> {
   Future<InvoiceLineDraft?> _editLine(InvoiceLineDraft line, {bool isNew = false}) async {
     final q = TextEditingController(text: numText(line.qty));
     final pr = TextEditingController(text: numText(line.price));
+    final sell = TextEditingController(text: line.sellPrice == null ? '' : numText(line.sellPrice));
     final notes = TextEditingController(text: line.notes);
     final available = _stock[line.productId];
+    // What the showroom sells it for today, to show under the selling price
+    // box: for goods that have been here since before anybody wrote down
+    // what they cost, there is no old margin to work from.
+    final product = kind == 'purchase' ? await app.db.byId('products', line.productId) : null;
+    final oldRetail = n(product?['retail_price']);
+    final oldCost = n(product?['cost_price']);
+    if (!mounted) return null;
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => StatefulBuilder(
@@ -289,6 +298,21 @@ class _InvoiceFormState extends State<InvoiceForm> {
                       ),
                     ],
                   ),
+                  if (kind == 'purchase') ...[
+                    const Gap(),
+                    NumField(
+                      controller: sell,
+                      label: 'سعر البيع بعد الشراء (اختياري)',
+                      suffix: currency,
+                      onChanged: (_) => setState(() {}),
+                      helper: _sellHelp(
+                        typed: parseNum(sell.text),
+                        cost: parseNum(pr.text),
+                        oldRetail: oldRetail,
+                        oldCost: oldCost,
+                      ),
+                    ),
+                  ],
                   const Gap(),
                   TextF(controller: notes, label: 'سيريال / ملاحظات'),
                   const Gap(),
@@ -321,9 +345,28 @@ class _InvoiceFormState extends State<InvoiceForm> {
     line
       ..qty = parseNum(q.text)
       ..price = parseNum(pr.text)
+      ..sellPrice = parseNum(sell.text) > 0 ? parseNum(sell.text) : null
       ..notes = notes.text.trim();
     setState(() {});
     return line;
+  }
+
+  /// The line under the selling price box: what it means to leave it empty,
+  /// which depends on whether the old purchase price is known.
+  String _sellHelp({
+    required double typed,
+    required double cost,
+    required double oldRetail,
+    required double oldCost,
+  }) {
+    if (typed > 0) {
+      return cost > 0 && typed > cost ? 'مكسب ${money(typed - cost)}' : 'أقل من سعر الشراء!';
+    }
+    if (oldRetail <= 0) return 'مفيش سعر بيع مسجل. اكتبه هنا.';
+    if (oldCost <= 0) {
+      return 'السعر الحالي ${money(oldRetail)}. مفيش سعر شراء قديم، فسيبه فاضي يفضل زي ما هو.';
+    }
+    return 'سيبه فاضي وسعر البيع هيزيد بنفس النسبة (دلوقتي ${money(oldRetail)}).';
   }
 
   Future<void> _changePriceLevel(String level) async {
@@ -446,6 +489,13 @@ class _InvoiceFormState extends State<InvoiceForm> {
       await _refreshStock();
       if (mounted) toast(context, e.toString(), error: true);
       return;
+    }
+    // Goods that just arrived need stickers with today's price, one for every
+    // piece, without anybody having to go and ask for them.
+    if (kind == 'purchase' && widget.id == null) {
+      for (final l in _lines) {
+        await LabelQueue.add(l.productId, l.qty >= 1 ? l.qty.round() : 1);
+      }
     }
     widget.onSaved?.call();
     if (!mounted) return;

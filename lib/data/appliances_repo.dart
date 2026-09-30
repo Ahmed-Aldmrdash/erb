@@ -12,6 +12,7 @@ class InvoiceLineDraft {
     required this.price,
     this.notes = '',
     this.unit = '',
+    this.sellPrice,
   });
 
   String productId;
@@ -20,6 +21,11 @@ class InvoiceLineDraft {
   double qty;
   double price;
   String notes;
+
+  /// On a purchase invoice: the selling price typed by hand for this product.
+  /// Null means "work it out from the old margin", which is what happens for
+  /// a product whose purchase price is already known.
+  double? sellPrice;
 
   double get total => roundMoney(qty * price);
 }
@@ -242,13 +248,19 @@ ORDER BY LENGTH(p.barcode) DESC LIMIT 1''', [code, code]);
       final oldRetail = n(p['retail_price']);
       final oldWholesale = n(p['wholesale_price']);
       final costChanged = (oldCost - l.price).abs() > 0.009;
+      // A selling price typed on the invoice wins: it is the answer for goods
+      // that have been on the shelf since before anybody wrote down what they
+      // cost, so there is no old margin to follow.
+      final typed = l.sellPrice;
       final u = PriceUpdate(
         productId: l.productId,
         name: s(p['name']),
         oldCost: oldCost,
         cost: l.price,
         oldRetail: oldRetail,
-        retail: priceFollowingCost(
+        retail: typed != null && typed > 0
+            ? typed
+            : priceFollowingCost(
           oldCost: oldCost,
           newCost: l.price,
           oldPrice: oldRetail,

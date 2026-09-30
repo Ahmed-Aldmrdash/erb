@@ -205,6 +205,57 @@ void main() {
     expect(updates.single.wholesale, 0);
   });
 
+  test('goods with no purchase price on record take the price we type', () async {
+    // On the shelf since before anybody wrote down what it cost: a selling
+    // price, no purchase price, so there is no old margin to follow.
+    final id = await shop.appliances.saveProduct({'name': 'ترموس عادي', 'retail_price': 120});
+
+    // Nothing typed: the cost is learned, the selling price is left alone.
+    var updates = await shop.appliances.suggestPriceUpdates(
+      [InvoiceLineDraft(productId: id, name: 'ترموس', qty: 10, price: 90)],
+      step: 10,
+    );
+    expect(updates.single.cost, 90);
+    expect(updates.single.retail, 120);
+
+    // A selling price typed on the invoice is the one that counts.
+    updates = await shop.appliances.suggestPriceUpdates(
+      [InvoiceLineDraft(productId: id, name: 'ترموس', qty: 10, price: 90, sellPrice: 135)],
+      step: 10,
+    );
+    expect(updates.single.retail, 135);
+    expect(updates.single.cost, 90);
+
+    await shop.appliances.saveInvoice(
+      header: {
+        'kind': 'purchase',
+        'date': todayStr(),
+        'warehouse_id': showroom,
+        'cash_box_id': appliancesBox,
+        'payment_type': 'cash',
+        'subtotal': 900,
+        'total': 900,
+        'grand_total': 900,
+        'paid_amount': 900,
+      },
+      lines: [InvoiceLineDraft(productId: id, name: 'ترموس', qty: 10, price: 90, sellPrice: 135)],
+      priceUpdates: updates,
+    );
+    final p = (await shop.appliances.product(id))!;
+    expect(n(p['cost_price']), 90);
+    expect(n(p['retail_price']), 135);
+  });
+
+  test('a typed selling price wins over the margin it would have worked out', () async {
+    final id = await addProduct(cost: 10000, retail: 13000);
+    final updates = await shop.appliances.suggestPriceUpdates(
+      [InvoiceLineDraft(productId: id, name: 'ثلاجة', qty: 1, price: 11000, sellPrice: 15000)],
+      step: 10,
+    );
+    // 14,300 is what the ratio gives; the showroom said 15,000.
+    expect(updates.single.retail, 15000);
+  });
+
   test('a purchase at the same price suggests nothing', () async {
     final id = await addProduct(cost: 10000, retail: 13000);
     final updates = await shop.appliances.suggestPriceUpdates(

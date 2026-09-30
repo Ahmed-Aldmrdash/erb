@@ -183,7 +183,7 @@ class MoreScreen extends StatelessWidget {
             const Padding(
               padding: EdgeInsets.all(20),
               child: Text(
-                'الدمرداش - الإصدار 2.7',
+                'الدمرداش - الإصدار 2.8',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: AppColors.muted),
               ),

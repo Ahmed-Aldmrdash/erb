@@ -168,17 +168,39 @@ class _ProductsScreenState extends State<ProductsScreen> {
                       text: _lowOnly ? 'مفيش أصناف قربت تخلص' : 'مفيش أصناف لسه',
                     );
                   }
+                  // What the goods on the shelves cost, and what they bring
+                  // in if they all sell at today's prices.
                   final value = rows.fold<double>(0, (a, r) => a + (n(r['stock']) > 0 ? n(r['stock']) * n(r['unit_cost']) : 0));
+                  final selling = rows.fold<double>(0, (a, r) => a + (n(r['stock']) > 0 ? n(r['stock']) * n(r['retail_price']) : 0));
                   return ListView(
                     padding: const EdgeInsets.only(bottom: 90),
                     children: [
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                         child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text('${rows.length} صنف', style: const TextStyle(color: AppColors.muted)),
                             const Spacer(),
-                            Text('قيمة المخزون: ${egp(value)}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                            Flexible(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text('المخزون بالتكلفة: ${egp(value)}',
+                                        style: const TextStyle(fontWeight: FontWeight.w700)),
+                                  ),
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      'لو اتباع كله: ${egp(selling)}${selling > value ? ' • مكسب ${money(selling - value)}' : ''}',
+                                      style: const TextStyle(color: AppColors.good, fontSize: 12.5, fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
                       ),
