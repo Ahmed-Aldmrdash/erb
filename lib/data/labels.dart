@@ -57,7 +57,13 @@ const noteKinds = {
   'note': 'ملاحظة',
   'money': 'فلوس / أمانة',
   'task': 'مهمة',
+  // Written on the "النواقص" screen, not on the reminder board.
+  needKind: 'ناقص',
 };
+
+/// Something the shop ran out of and has to be brought. It lives with the
+/// reminders but has its own screen.
+const needKind = 'need';
 
 const defaultExpenseCategories = [
   'إيجار',

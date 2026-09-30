@@ -8,9 +8,25 @@ class NotesRepo {
 
   final AppDb db;
 
-  Future<List<DbRow>> list({required bool done, String search = ''}) {
+  /// [kinds] keeps only these kinds, [exceptKinds] leaves them out: the
+  /// reminder board and the list of what the shop is out of live in the same
+  /// table but are two different screens.
+  Future<List<DbRow>> list({
+    required bool done,
+    String search = '',
+    List<String>? kinds,
+    List<String>? exceptKinds,
+  }) {
     final where = <String>['deleted = 0', 'done = ?'];
     final args = <Object?>[done ? 1 : 0];
+    if (kinds != null && kinds.isNotEmpty) {
+      where.add('kind IN (${List.filled(kinds.length, '?').join(', ')})');
+      args.addAll(kinds);
+    }
+    if (exceptKinds != null && exceptKinds.isNotEmpty) {
+      where.add('kind NOT IN (${List.filled(exceptKinds.length, '?').join(', ')})');
+      args.addAll(exceptKinds);
+    }
     if (search.trim().isNotEmpty) {
       where.add('(${arFoldSql('body')} LIKE ? OR ${arFoldSql('person')} LIKE ?)');
       final q = '%${arFold(search)}%';
@@ -22,7 +38,19 @@ class NotesRepo {
     return db.q('SELECT * FROM notes WHERE ${where.join(' AND ')} ORDER BY $order LIMIT 300', args);
   }
 
-  Future<int> openCount() async => (await db.val('SELECT COUNT(*) FROM notes WHERE deleted = 0 AND done = 0')).toInt();
+  Future<int> openCount({List<String>? kinds, List<String>? exceptKinds}) async {
+    final where = <String>['deleted = 0', 'done = 0'];
+    final args = <Object?>[];
+    if (kinds != null && kinds.isNotEmpty) {
+      where.add('kind IN (${List.filled(kinds.length, '?').join(', ')})');
+      args.addAll(kinds);
+    }
+    if (exceptKinds != null && exceptKinds.isNotEmpty) {
+      where.add('kind NOT IN (${List.filled(exceptKinds.length, '?').join(', ')})');
+      args.addAll(exceptKinds);
+    }
+    return (await db.val('SELECT COUNT(*) FROM notes WHERE ${where.join(' AND ')}', args)).toInt();
+  }
 
   Future<DbRow?> note(String id) => db.byId('notes', id);
 

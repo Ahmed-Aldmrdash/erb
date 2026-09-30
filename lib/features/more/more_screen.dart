@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/app_state.dart';
 import '../../core/db/schema.dart';
 import '../../core/label_queue.dart';
+import '../../data/labels.dart';
 import '../../data/permissions.dart';
 import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
@@ -19,6 +20,7 @@ import '../common/excel_export.dart';
 import '../common/stock_move_form.dart';
 import '../crops/crop_trades_screen.dart';
 import '../crops/crops_manage.dart';
+import '../notes/needs_screen.dart';
 import '../notes/notes_screen.dart';
 import '../reports/reports_screen.dart';
 import '../reports/season_report_screen.dart';
@@ -41,7 +43,7 @@ class MoreScreen extends StatelessWidget {
             const SectionTitle('المتابعة'),
             ActionGrid(columns: 4, children: [
               DbBuilder<int>(
-                query: app.notes.openCount,
+                query: () => app.notes.openCount(exceptKinds: const [needKind]),
                 builder: (context, open) => ActionTile(
                   icon: Icons.sticky_note_2_outlined,
                   label: 'التذكرة',
@@ -52,6 +54,17 @@ class MoreScreen extends StatelessWidget {
               ),
               // Who did what in the whole business: for whoever follows the
               // work, not for somebody who only stands at the cashier.
+              if (app.can(Perm.stock))
+                DbBuilder<int>(
+                  query: () => app.notes.openCount(kinds: const [needKind]),
+                  builder: (context, missing) => ActionTile(
+                    icon: Icons.playlist_add_check_circle_outlined,
+                    label: 'النواقص',
+                    color: AppColors.warn,
+                    badge: missing,
+                    onTap: () => push(context, const NeedsScreen()),
+                  ),
+                ),
               if (app.can(Perm.reports) || app.can(Perm.settings))
                 ActionTile(
                   icon: Icons.history,
@@ -170,7 +183,7 @@ class MoreScreen extends StatelessWidget {
             const Padding(
               padding: EdgeInsets.all(20),
               child: Text(
-                'الدمرداش - الإصدار 2.6.1',
+                'الدمرداش - الإصدار 2.7',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: AppColors.muted),
               ),

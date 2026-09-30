@@ -7,6 +7,7 @@ import '../../data/calc.dart';
 import '../../ui/pickers.dart';
 import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
+import '../notes/needs_screen.dart';
 import 'labels_screen.dart';
 import 'product_form.dart';
 
@@ -299,6 +300,15 @@ Future<void> showProductActions(BuildContext context, DbRow product) async {
             onTap: () async {
               Navigator.pop(c);
               await editProductStock(context, product);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.playlist_add_check_circle_outlined, color: AppColors.warn),
+            title: const Text('زوّده للنواقص'),
+            subtitle: const Text('عشان تفتكر تجيبه'),
+            onTap: () async {
+              Navigator.pop(c);
+              await showNeedSheet(context, presetBody: s(product['name']));
             },
           ),
           ListTile(

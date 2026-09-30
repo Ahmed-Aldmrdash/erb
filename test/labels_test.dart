@@ -6,7 +6,6 @@ import 'package:trade_erp/core/app_state.dart';
 import 'package:trade_erp/core/db/prefs.dart';
 import 'package:trade_erp/core/db/schema.dart';
 import 'package:trade_erp/core/label_queue.dart';
-import 'package:trade_erp/core/util/format.dart';
 
 /// The list of products waiting for a price sticker. A product added anywhere
 /// in the showroom lands here by itself, so nobody has to remember to ask for

@@ -42,7 +42,8 @@ class _NotesScreenState extends State<NotesScreen> {
             Expanded(
               child: DbBuilder<List<DbRow>>(
                 queryKey: (_done, _search),
-                query: () => app.notes.list(done: _done, search: _search),
+                // The shop's missing items have their own screen.
+                query: () => app.notes.list(done: _done, search: _search, exceptKinds: const [needKind]),
                 builder: (context, rows) {
                   if (rows.isEmpty) {
                     return EmptyView(
@@ -256,7 +257,11 @@ class _NoteSheetState extends State<_NoteSheet> {
               ],
             ),
             const Gap(8),
-            Choice<String>(options: noteKinds, value: _kind, onChanged: (v) => setState(() => _kind = v)),
+            Choice<String>(
+              options: {for (final e in noteKinds.entries) if (e.key != needKind) e.key: e.value},
+              value: _kind,
+              onChanged: (v) => setState(() => _kind = v),
+            ),
             const Gap(),
             TextF(
               controller: _body,
