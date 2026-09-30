@@ -14,10 +14,10 @@ import 'invoice_form.dart';
 /// Everything else follows from the return invoice that comes out of it: the
 /// pieces go back on the shelf, the money comes off what the customer owes,
 /// and the sale figures are netted down — nothing has to be fixed by hand.
-Future<void> startReturn(BuildContext context, {String kind = 'sale_return'}) async {
+Future<void> startReturn(BuildContext context, {String kind = 'sale_return', String? partyId}) async {
   final picked = await push<(DbRow, List<InvoiceLineDraft>)>(
     context,
-    _PickInvoiceScreen(kind: kind),
+    _PickInvoiceScreen(kind: kind, partyId: partyId),
   );
   if (picked == null || !context.mounted) return;
   await push(
@@ -43,9 +43,12 @@ Future<void> returnFromInvoice(BuildContext context, DbRow invoice) async {
 
 /// Step one: which invoice did the goods go out on.
 class _PickInvoiceScreen extends StatefulWidget {
-  const _PickInvoiceScreen({required this.kind});
+  const _PickInvoiceScreen({required this.kind, this.partyId});
 
   final String kind;
+
+  /// Only this customer's invoices, when the return starts from his page.
+  final String? partyId;
 
   @override
   State<_PickInvoiceScreen> createState() => _PickInvoiceScreenState();
@@ -78,19 +81,22 @@ class _PickInvoiceScreenState extends State<_PickInvoiceScreen> {
             PeriodBar(value: _period, onChanged: (p) => setState(() => _period = p)),
             Expanded(
               child: DbBuilder<List<DbRow>>(
-                queryKey: (_search, _period, widget.kind),
+                queryKey: (_search, _period, widget.kind, widget.partyId),
                 query: () => app.appliances.invoices(
                   kinds: [_isSale ? 'sale' : 'purchase'],
                   from: _period.from,
                   to: _period.to,
                   search: _search,
+                  partyId: widget.partyId,
                   limit: 300,
                 ),
                 builder: (context, rows) {
                   if (rows.isEmpty) {
-                    return const EmptyView(
+                    return EmptyView(
                       icon: Icons.receipt_long_outlined,
-                      text: 'مفيش فواتير في الفترة دي. جرب "الكل" فوق.',
+                      text: widget.partyId != null
+                          ? 'مفيش فواتير للاسم ده في الفترة دي. جرب "الكل" فوق.'
+                          : 'مفيش فواتير في الفترة دي. جرب "الكل" فوق.',
                     );
                   }
                   return ListView(

@@ -8,7 +8,9 @@ import '../../data/labels.dart';
 import '../../ui/share.dart';
 import '../../ui/theme.dart';
 import '../../ui/wa_text.dart';
+import '../../data/permissions.dart';
 import '../../ui/widgets.dart';
+import '../appliances/return_flow.dart';
 import '../common/open_doc.dart';
 import '../common/pdf_docs.dart';
 import '../notes/notes_screen.dart';
@@ -214,6 +216,21 @@ class _PartyDetailScreenState extends State<PartyDetailScreen> {
                   ],
                 ),
                 const Gap(8),
+                // The customer walks in with the goods, so the return starts
+                // from his page and only his invoices are offered.
+                if (!app.isCrops && app.can(Perm.sales))
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: OutlinedButton.icon(
+                      onPressed: () => startReturn(
+                        context,
+                        kind: s(p['kind']) == 'supplier' ? 'purchase_return' : 'sale_return',
+                        partyId: widget.partyId,
+                      ),
+                      icon: const Icon(Icons.assignment_return_outlined),
+                      label: Text(s(p['kind']) == 'supplier' ? 'بضاعة رجعتها له' : 'بضاعة رجعت منه'),
+                    ),
+                  ),
                 OutlinedButton.icon(
                   onPressed: () => showNoteSheet(context, presetBody: 'بخصوص ${s(p['name'])}: '),
                   icon: const Icon(Icons.sticky_note_2_outlined),

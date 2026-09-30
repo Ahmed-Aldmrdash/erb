@@ -36,7 +36,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
         appBar: AppBar(
           title: Text(widget.mineOnly
               ? 'فواتيري'
-              : (widget.kind.endsWith('_return') ? 'المرتجعات' : 'الفواتير')),
+              : (_kind.endsWith('_return') ? 'المرتجعات' : 'الفواتير')),
           actions: [
             if (!widget.mineOnly)
               ExcelButton(
