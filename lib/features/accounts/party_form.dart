@@ -121,8 +121,14 @@ class _PartyFormScreenState extends State<PartyFormScreen> {
       ..maybePop();
   }
 
+  /// A name was typed but not written down yet.
+  bool get _dirty => !_busy && widget.id == null && _name.text.trim().isNotEmpty;
+
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => UnsavedGuard(
+        dirty: () => _dirty,
+        message: 'البيانات اللي كتبتها هتضيع من غير حفظ.',
+        child: Scaffold(
         appBar: AppBar(
           title: Text(widget.id == null ? 'إضافة اسم جديد' : 'تعديل البيانات'),
           actions: [
@@ -243,5 +249,6 @@ class _PartyFormScreenState extends State<PartyFormScreen> {
           ),
         ),
         bottomNavigationBar: SaveBar(onSave: _save, busy: _busy),
+        ),
       );
 }

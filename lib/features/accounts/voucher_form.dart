@@ -167,11 +167,17 @@ class _VoucherFormState extends State<VoucherForm> {
     Navigator.pop(context, true);
   }
 
+  /// Money was typed on the voucher but not written down yet.
+  bool get _dirty => !_busy && widget.id == null && parseNum(_amount.text) > 0;
+
   @override
   Widget build(BuildContext context) {
     final amount = parseNum(_amount.text);
     final after = _baseBalance + _sign * amount;
-    return Scaffold(
+    return UnsavedGuard(
+      dirty: () => _dirty,
+      message: 'المبلغ اللي كتبته هيضيع من غير حفظ.',
+      child: Scaffold(
       appBar: AppBar(title: Text(widget.id == null ? _title : 'تعديل $_title')),
       body: Form(
         key: _form,
@@ -299,6 +305,7 @@ class _VoucherFormState extends State<VoucherForm> {
         ),
       ),
       bottomNavigationBar: SaveBar(onSave: _save, busy: _busy, color: _color),
+      ),
     );
   }
 }

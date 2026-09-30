@@ -4,6 +4,7 @@ import '../../core/app_state.dart';
 import '../../core/db/app_db.dart';
 import '../../core/label_queue.dart';
 import '../../core/util/format.dart';
+import '../../data/barcode.dart';
 import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
 import '../common/excel_export.dart';
@@ -65,7 +66,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
           title: 'أرقام الأصناف',
           message: '${state.short} صنف رقمه قصير من نسخة قديمة'
               '${state.missing > 0 ? '، و${state.missing} صنف من غير رقم' : ''}.\n\n'
-              'نديهم أرقام جديدة بنفس الطول (4 أرقام)؟ لو طبعت ملصقات للأصناف دي قبل كده '
+              'نديهم أرقام جديدة بنفس الطول (${ProductCode.digits} أرقام)؟ لو طبعت ملصقات للأصناف دي قبل كده '
               'هتحتاج تطبعها تاني.',
           ok: 'إديهم أرقام جديدة',
         );

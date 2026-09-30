@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/app_state.dart';
+import '../../core/config.dart';
 import '../../core/db/schema.dart';
 import '../../core/label_queue.dart';
 import '../../data/labels.dart';
@@ -180,12 +181,12 @@ class MoreScreen extends StatelessWidget {
                   onTap: () => app.switchDivision(_other),
                 ),
               ]),
-            const Padding(
-              padding: EdgeInsets.all(20),
+            Padding(
+              padding: const EdgeInsets.all(20),
               child: Text(
-                'الدمرداش - الإصدار 2.8',
+                'الدمرداش - الإصدار $appVersion',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.muted),
+                style: const TextStyle(color: AppColors.muted),
               ),
             ),
           ],

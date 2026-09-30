@@ -14,6 +14,7 @@ import '../accounts/voucher_form.dart';
 import '../appliances/installments_screen.dart';
 import '../appliances/invoice_form.dart';
 import '../appliances/invoices_screen.dart';
+import '../appliances/return_flow.dart';
 import '../appliances/products_screen.dart';
 import '../cash/daily_cash_screen.dart';
 import '../common/person_chip.dart';
@@ -247,6 +248,15 @@ class DashboardScreen extends StatelessWidget {
             label: 'بضاعة جت',
             color: AppColors.crops,
             onTap: () => push(context, const InvoiceForm(kind: 'purchase')),
+          )
+        ),
+        (
+          app.can(Perm.sales),
+          ActionTile(
+            icon: Icons.assignment_return_outlined,
+            label: 'مرتجع',
+            color: AppColors.warn,
+            onTap: () => startReturn(context),
           )
         ),
         (

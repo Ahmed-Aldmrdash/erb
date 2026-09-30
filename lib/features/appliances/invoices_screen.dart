@@ -10,6 +10,7 @@ import '../../ui/widgets.dart';
 import '../common/excel_export.dart';
 import 'invoice_detail.dart';
 import 'invoice_form.dart';
+import 'return_flow.dart';
 
 class InvoicesScreen extends StatefulWidget {
   const InvoicesScreen({super.key, this.kind = 'sale', this.mineOnly = false});
@@ -33,7 +34,9 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(
-          title: Text(widget.mineOnly ? 'فواتيري' : 'الفواتير'),
+          title: Text(widget.mineOnly
+              ? 'فواتيري'
+              : (widget.kind.endsWith('_return') ? 'المرتجعات' : 'الفواتير')),
           actions: [
             if (!widget.mineOnly)
               ExcelButton(
@@ -45,7 +48,11 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
         floatingActionButton: widget.mineOnly
             ? null
             : FloatingActionButton.extended(
-                onPressed: () => push(context, InvoiceForm(kind: _kind)),
+                // A return always starts from the invoice the goods went out
+                // on, so the pieces, the prices and the customer come with it.
+                onPressed: () => _kind.endsWith('_return')
+                    ? startReturn(context, kind: _kind)
+                    : push(context, InvoiceForm(kind: _kind)),
                 icon: const Icon(Icons.add),
                 label: Text(invoiceKinds[_kind] ?? 'فاتورة'),
               ),

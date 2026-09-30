@@ -269,12 +269,19 @@ class _CropTradeFormState extends State<CropTradeForm> {
         child: Text(text, style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700)),
       );
 
+  /// Something was written on this trade and not saved yet.
+  bool get _dirty =>
+      !_busy && widget.id == null && (_party != null || parseNum(_gross.text) > 0 || parseNum(_bags.text) > 0);
+
   @override
   Widget build(BuildContext context) {
     final c = calc;
     final after = _partyBalance + _effect(c);
     final unit = _unitName;
-    return Scaffold(
+    return UnsavedGuard(
+      dirty: () => _dirty,
+      message: 'العملية اللي بتكتبها هتضيع من غير حفظ.',
+      child: Scaffold(
       appBar: AppBar(
         title: Text(widget.id != null ? 'تعديل العملية' : (isSale ? 'بيع محصول' : 'توريد محصول (شراء)')),
       ),
@@ -564,6 +571,7 @@ class _CropTradeFormState extends State<CropTradeForm> {
         ),
       ),
       bottomNavigationBar: SaveBar(onSave: _save, busy: _busy),
+      ),
     );
   }
 }

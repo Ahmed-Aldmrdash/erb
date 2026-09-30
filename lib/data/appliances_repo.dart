@@ -398,6 +398,33 @@ FROM v_lines l LEFT JOIN products p ON p.id = l.product_id
 WHERE l.invoice_id = ?
 ORDER BY l.sort''', [invoiceId]);
 
+  /// The lines of [invoiceId] with what is still returnable on each: what
+  /// went out to the customer, minus what already came back on returns that
+  /// point at this invoice.
+  /// One row per product, because the same product can be written on two
+  /// lines of the same invoice. The price is what the customer really paid
+  /// after the invoice discount, so that is what goes back to him.
+  Future<List<DbRow>> returnableLines(String invoiceId) => db.q('''
+SELECT l.product_id AS product_id,
+  IFNULL(MAX(p.name), '') AS product_name,
+  IFNULL(MAX(p.unit), '') AS unit,
+  SUM(l.qty) AS qty,
+  CASE WHEN SUM(l.qty) > 0 THEN SUM(l.qty * l.price * l.disc_factor) / SUM(l.qty)
+       ELSE MAX(l.price) END AS price,
+  IFNULL((
+    SELECT SUM(rl.qty) FROM v_lines rl
+    JOIN invoices ri ON ri.id = rl.invoice_id
+    WHERE ri.deleted = 0 AND ri.ref_invoice_id = ? AND rl.product_id = l.product_id
+  ), 0) AS returned_qty
+FROM v_lines l LEFT JOIN products p ON p.id = l.product_id
+WHERE l.invoice_id = ?
+GROUP BY l.product_id
+ORDER BY MIN(l.sort)''', [invoiceId, invoiceId]);
+
+  /// The returns written against [invoiceId], newest first.
+  Future<List<DbRow>> returnsOf(String invoiceId) =>
+      db.q('$_invoiceSelect WHERE i.deleted = 0 AND i.ref_invoice_id = ? ORDER BY i.date DESC, i.created_at DESC', [invoiceId]);
+
   /// Saves header, lines and installment schedule in one transaction. Every
   /// save gets a new revision id; lines of older revisions stop counting.
   ///

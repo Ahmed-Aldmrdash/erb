@@ -143,6 +143,13 @@ class _InvoiceFormState extends State<InvoiceForm> {
       await _loadInvoice(widget.id!, editing: true);
     } else if (widget.returnOfId != null) {
       await _loadInvoice(widget.returnOfId!, editing: false);
+      // The pieces that really came back, picked on the way here. Without
+      // them the whole invoice is treated as returned.
+      if (widget.initialLines != null) {
+        _lines
+          ..clear()
+          ..addAll(widget.initialLines!);
+      }
       _refInvoiceId = widget.returnOfId;
       _paymentType = 'credit';
     } else {
@@ -511,12 +518,22 @@ class _InvoiceFormState extends State<InvoiceForm> {
         child: Text(text, style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700)),
       );
 
+  /// Something was written on this invoice and not saved yet.
+  ///
+  /// An invoice opened from the cashier is not guarded: the basket keeps
+  /// everything, so going back to it loses nothing and a question would only
+  /// be in the way.
+  bool get _dirty => !_busy && _lines.isNotEmpty && widget.id == null && widget.onSaved == null;
+
   @override
   Widget build(BuildContext context) {
     final plan = _plan;
     final after = _partyBalance + _effect;
     final partyLabel = usesCost ? 'المورد' : 'العميل';
-    return Scaffold(
+    return UnsavedGuard(
+      dirty: () => _dirty,
+      message: 'الفاتورة اللي بتكتبها هتضيع من غير حفظ.',
+      child: Scaffold(
       appBar: AppBar(title: Text(widget.id == null ? _title : 'تعديل $_title')),
       body: Form(
         key: _form,
@@ -630,6 +647,9 @@ class _InvoiceFormState extends State<InvoiceForm> {
                       label: isReturn ? 'المبلغ المردود نقدي' : 'المدفوع الآن',
                       suffix: currency,
                       onChanged: (_) => setState(() {}),
+                      helper: isReturn
+                          ? 'سيبه فاضي لو الفلوس هتتشال من حسابه بدل ما ترجعها كاش'
+                          : null,
                     ),
                     const Gap(),
                   ] else
@@ -662,6 +682,7 @@ class _InvoiceFormState extends State<InvoiceForm> {
         ),
       ),
       bottomNavigationBar: SaveBar(onSave: _save, busy: _busy, label: 'حفظ ${egp(_grandTotal)}'),
+      ),
     );
   }
 

@@ -16,14 +16,19 @@ import '../accounts/voucher_form.dart';
 import '../accounts/vouchers_screen.dart';
 import '../common/pdf_docs.dart';
 import 'invoice_form.dart';
+import 'return_flow.dart';
 
 class _InvoiceData {
-  _InvoiceData(this.inv, this.lines, this.installments, this.receipts);
+  _InvoiceData(this.inv, this.lines, this.installments, this.receipts, this.returns);
 
   final DbRow? inv;
   final List<DbRow> lines;
   final List<InstallmentStatus> installments;
   final List<DbRow> receipts;
+
+  /// The returns written against this invoice, so the goods that came back
+  /// are visible on the invoice they went out on.
+  final List<DbRow> returns;
 }
 
 class InvoiceDetailScreen extends StatelessWidget {
@@ -37,6 +42,7 @@ class InvoiceDetailScreen extends StatelessWidget {
         await app.appliances.invoiceLines(invoiceId),
         await app.appliances.invoiceInstallments(invoiceId),
         await app.accounts.vouchers(invoiceId: invoiceId),
+        await app.appliances.returnsOf(invoiceId),
       );
 
   @override
@@ -76,7 +82,7 @@ class InvoiceDetailScreen extends StatelessWidget {
                 PopupMenuButton<String>(
                   onSelected: (v) async {
                     if (v == 'return') {
-                      push(context, InvoiceForm(kind: kind == 'sale' ? 'sale_return' : 'purchase_return', returnOfId: invoiceId));
+                      await returnFromInvoice(context, inv);
                     } else if (v == 'delete') {
                       final ok = await confirmDialog(
                         context,
@@ -129,6 +135,13 @@ class InvoiceDetailScreen extends StatelessWidget {
                       if (isInstallment && s(inv['guarantor_name']).isNotEmpty)
                         InfoRow('الضامن', '${s(inv['guarantor_name'])} ${s(inv['guarantor_phone'])}'),
                       if (s(inv['notes']).isNotEmpty) InfoRow('ملاحظات', s(inv['notes'])),
+                      // A return says which invoice the goods went out on, so
+                      // anybody looking at it can get back to the sale itself.
+                      if (kind.endsWith('_return') && inv['ref_invoice_id'] != null)
+                        InkWell(
+                          onTap: () => push(context, InvoiceDetailScreen(invoiceId: s(inv['ref_invoice_id']))),
+                          child: const InfoRow('مرتجع من', 'افتح الفاتورة الأصلية', color: AppColors.appliances),
+                        ),
                       ByLine(row: inv),
                     ],
                   ),
@@ -180,6 +193,20 @@ class InvoiceDetailScreen extends StatelessWidget {
                 if (d.receipts.isNotEmpty) ...[
                   const SectionTitle('المدفوعات على الفاتورة', padding: EdgeInsets.fromLTRB(4, 16, 4, 8)),
                   TileGroup(margin: EdgeInsets.zero, children: [for (final r in d.receipts) VoucherTile(r)]),
+                ],
+                if (d.returns.isNotEmpty) ...[
+                  const SectionTitle('اللي رجع من الفاتورة دي', padding: EdgeInsets.fromLTRB(4, 16, 4, 8)),
+                  TileGroup(margin: EdgeInsets.zero, children: [
+                    for (final r in d.returns)
+                      ListTile(
+                        onTap: () => push(context, InvoiceDetailScreen(invoiceId: s(r['id']))),
+                        leading: const Icon(Icons.assignment_return_outlined, color: AppColors.warn),
+                        title: Text('مرتجع ${s(r['number'])} • ${showDate(s(r['date']))}'),
+                        subtitle: Text('${ni(r['line_count'])} صنف'),
+                        trailing: Text(egp(n(r['grand_total'])),
+                            style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.warn)),
+                      ),
+                  ]),
                 ],
                 const Gap(16),
                 if (remaining > 0.009 && partyId != null)

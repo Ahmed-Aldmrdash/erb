@@ -44,6 +44,48 @@ Future<bool> confirmDialog(
   return r == true;
 }
 
+/// Asks before leaving a screen with something typed on it but not saved.
+///
+/// Losing half a written invoice because somebody pressed back is the kind of
+/// thing that makes people stop trusting the app, so every form that can hold
+/// work wraps itself in this.
+class UnsavedGuard extends StatelessWidget {
+  const UnsavedGuard({
+    super.key,
+    required this.dirty,
+    required this.child,
+    this.message = 'اللي كتبته هيضيع من غير حفظ.',
+  });
+
+  /// Asked at the moment of leaving, not while building: a form does not
+  /// rebuild itself every time a letter is typed into it.
+  final bool Function() dirty;
+  final String message;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) async {
+          if (didPop) return;
+          final navigator = Navigator.of(context);
+          if (!dirty()) {
+            navigator.pop();
+            return;
+          }
+          final ok = await confirmDialog(
+            context,
+            title: 'تخرج من غير حفظ؟',
+            message: message,
+            ok: 'اخرج',
+            danger: true,
+          );
+          if (ok) navigator.pop();
+        },
+        child: child,
+      );
+}
+
 /// Runs [query], and runs it again every time the local database changes
 /// (a local edit or data arriving from another phone).
 class DbBuilder<T> extends StatefulWidget {

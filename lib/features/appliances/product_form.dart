@@ -40,6 +40,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   final _notes = TextEditingController();
   bool _active = true;
   bool _busy = false;
+  String _saved = '';
   DbRow? _warehouse;
   List<String> _categories = const [];
   List<String> _brands = const [];
@@ -95,8 +96,19 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       }
       if (app.defaultProfitPct > 0) _profitPct.text = numText(app.defaultProfitPct);
     }
+    _saved = _signature();
     if (mounted) setState(() {});
   }
+
+  /// Everything typed on the form, to tell a touched form from an untouched
+  /// one without watching every field.
+  String _signature() => [
+        _name.text, _category.text, _brand.text, _model.text, _barcode.text, _unit.text,
+        _cost.text, _profitPct.text, _retail.text, _wholesale.text, _minQty.text,
+        _initialStock.text, _notes.text, '$_active',
+      ].join('|');
+
+  bool get _dirty => !_busy && _signature() != _saved;
 
   Future<void> _save() async {
     if (!_form.currentState!.validate()) return;
@@ -161,6 +173,9 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       toast(context, err, error: true);
       return;
     }
+    // The form is gone with the product, so the unsaved-work guard must not
+    // stand in the way of leaving it.
+    setState(() => _busy = true);
     Navigator.of(context)
       ..pop()
       ..maybePop();
@@ -207,7 +222,10 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
         );
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => UnsavedGuard(
+        dirty: () => _dirty,
+        message: 'بيانات الصنف اللي كتبتها هتضيع من غير حفظ.',
+        child: Scaffold(
         appBar: AppBar(
           title: Text(widget.id == null ? 'صنف جديد' : 'تعديل الصنف'),
           actions: [
@@ -364,5 +382,6 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
           ),
         ),
         bottomNavigationBar: SaveBar(onSave: _save, busy: _busy),
+        ),
       );
 }
