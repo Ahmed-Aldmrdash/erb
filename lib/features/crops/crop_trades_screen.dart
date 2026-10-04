@@ -90,18 +90,20 @@ class _CropTradesScreenState extends State<CropTradesScreen> {
                       boughtAmount += n(r['party_total']);
                     }
                   }
-                  return ListView(
-                    padding: const EdgeInsets.only(bottom: 90),
-                    children: [
-                      CardRow(children: [
-                        if (_kind != 'sale')
-                          StatCard(label: 'توريد', value: '${qty(boughtKg)} كجم', subtitle: egp(boughtAmount), color: AppColors.crops),
-                        if (_kind != 'purchase')
-                          StatCard(label: 'بيع', value: '${qty(soldKg)} كجم', subtitle: egp(soldAmount), color: AppColors.appliances),
-                      ]),
-                      const Gap(10),
-                      TileGroup(children: [for (final r in rows) CropTradeTile(r)]),
-                    ],
+                  return TileListView(
+                    itemCount: rows.length,
+                    itemBuilder: (context, i) => CropTradeTile(rows[i]),
+                    header: Column(
+                      children: [
+                        CardRow(children: [
+                          if (_kind != 'sale')
+                            StatCard(label: 'توريد', value: '${qty(boughtKg)} كجم', subtitle: egp(boughtAmount), color: AppColors.crops),
+                          if (_kind != 'purchase')
+                            StatCard(label: 'بيع', value: '${qty(soldKg)} كجم', subtitle: egp(soldAmount), color: AppColors.appliances),
+                        ]),
+                        const Gap(10),
+                      ],
+                    ),
                   );
                 },
               ),

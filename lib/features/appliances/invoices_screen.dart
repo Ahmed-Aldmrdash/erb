@@ -93,10 +93,10 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                     );
                   }
                   final total = rows.fold<double>(0, (a, r) => a + n(r['grand_total']));
-                  return ListView(
-                    padding: const EdgeInsets.only(bottom: 90),
-                    children: [
-                      Padding(
+                  return TileListView(
+                    itemCount: rows.length,
+                    itemBuilder: (context, i) => InvoiceTile(rows[i]),
+                    header: Padding(
                         padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
                         child: Row(
                           children: [
@@ -106,8 +106,6 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                           ],
                         ),
                       ),
-                      TileGroup(children: [for (final r in rows) InvoiceTile(r)]),
-                    ],
                   );
                 },
               ),

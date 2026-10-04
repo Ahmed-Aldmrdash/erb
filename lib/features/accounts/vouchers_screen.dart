@@ -61,10 +61,10 @@ class _VouchersScreenState extends State<VouchersScreen> {
               builder: (context, rows) {
                 if (rows.isEmpty) return const EmptyView(icon: Icons.receipt_long_outlined, text: 'مفيش سندات في الفترة دي');
                 final total = rows.fold<double>(0, (a, r) => a + n(r['amount']));
-                return ListView(
-                  padding: const EdgeInsets.only(bottom: 90),
-                  children: [
-                    Padding(
+                return TileListView(
+                  itemCount: rows.length,
+                  itemBuilder: (context, i) => VoucherTile(rows[i]),
+                  header: Padding(
                       padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
                       child: Row(
                         children: [
@@ -74,8 +74,6 @@ class _VouchersScreenState extends State<VouchersScreen> {
                         ],
                       ),
                     ),
-                    TileGroup(children: [for (final r in rows) VoucherTile(r)]),
-                  ],
                 );
               },
             ),

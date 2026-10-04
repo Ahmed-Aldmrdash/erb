@@ -36,6 +36,17 @@ const localIndexSql = [
   'CREATE INDEX IF NOT EXISTS ix_vouchers_invoice ON vouchers(invoice_id)',
   'CREATE INDEX IF NOT EXISTS ix_vouchers_date ON vouchers(date)',
   'CREATE INDEX IF NOT EXISTS ix_moves_item ON stock_moves(item_id)',
+  // A showroom with a few thousand products: the scanner looks a code up on
+  // every beep, the lists filter by section, and the invoice views walk the
+  // lines of one revision.
+  'CREATE INDEX IF NOT EXISTS ix_products_barcode ON products(barcode)',
+  'CREATE INDEX IF NOT EXISTS ix_products_live ON products(deleted, active)',
+  'CREATE INDEX IF NOT EXISTS ix_products_category ON products(category)',
+  'CREATE INDEX IF NOT EXISTS ix_lines_rev ON invoice_lines(invoice_id, rev)',
+  'CREATE INDEX IF NOT EXISTS ix_invoices_kind_date ON invoices(kind, date)',
+  'CREATE INDEX IF NOT EXISTS ix_invoices_ref ON invoices(ref_invoice_id)',
+  'CREATE INDEX IF NOT EXISTS ix_inst_due ON installments(due_date)',
+  'CREATE INDEX IF NOT EXISTS ix_notes_kind ON notes(kind, done)',
 ];
 
 /// Every balance, stock level and cost is derived from the documents through

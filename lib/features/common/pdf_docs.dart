@@ -439,6 +439,13 @@ class PdfDocs {
   /// [products] are rows of [AppliancesRepo.products] paired with how many
   /// stickers each one needs. Everything is read now, so a label always
   /// carries the current price.
+  /// An A4 sheet of price stickers, three to a row.
+  ///
+  /// The rows are the page's children, so the document can be split between
+  /// them: one giant [pw.Wrap] of every sticker cannot be paginated, and on a
+  /// few hundred labels it took the whole app down with it.
+  static const labelsPerRow = 3;
+
   static Future<Uint8List> labels(List<(DbRow product, int count)> products, {bool wholesale = false}) async {
     final doc = pw.Document(theme: await _loadTheme());
     final shop = app.companyName;
@@ -489,12 +496,30 @@ class PdfDocs {
         );
       }
     }
+    final rows = <pw.Widget>[];
+    for (var i = 0; i < cells.length; i += labelsPerRow) {
+      final end = i + labelsPerRow < cells.length ? i + labelsPerRow : cells.length;
+      rows.add(
+        pw.Padding(
+          padding: const pw.EdgeInsets.only(bottom: 8),
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.start,
+            children: [
+              for (var j = i; j < end; j++) ...[
+                cells[j],
+                if (j < end - 1) pw.SizedBox(width: 8),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
     doc.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(18),
         textDirection: pw.TextDirection.rtl,
-        build: (_) => [pw.Wrap(spacing: 8, runSpacing: 8, children: cells)],
+        build: (_) => rows,
       ),
     );
     return doc.save();

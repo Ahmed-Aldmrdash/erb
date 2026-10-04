@@ -173,10 +173,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   // in if they all sell at today's prices.
                   final value = rows.fold<double>(0, (a, r) => a + (n(r['stock']) > 0 ? n(r['stock']) * n(r['unit_cost']) : 0));
                   final selling = rows.fold<double>(0, (a, r) => a + (n(r['stock']) > 0 ? n(r['stock']) * n(r['retail_price']) : 0));
-                  return ListView(
-                    padding: const EdgeInsets.only(bottom: 90),
-                    children: [
-                      Padding(
+                  return TileListView(
+                    itemCount: rows.length,
+                    itemBuilder: (context, i) => ProductTile(rows[i]),
+                    header: Padding(
                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -205,8 +205,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           ],
                         ),
                       ),
-                      TileGroup(children: [for (final r in rows) ProductTile(r)]),
-                    ],
                   );
                 },
               ),

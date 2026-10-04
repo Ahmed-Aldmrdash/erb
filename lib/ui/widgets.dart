@@ -772,20 +772,69 @@ class ChipsBar<T> extends StatelessWidget {
       );
 }
 
-class SearchField extends StatelessWidget {
+/// The search box over a list.
+///
+/// It waits a moment after the last letter before it asks for results: typing
+/// "ثلاجة" used to run the whole query six times, once per letter, and on a
+/// full showroom that is what made the search feel stuck.
+class SearchField extends StatefulWidget {
   const SearchField({super.key, required this.onChanged, this.hint = 'بحث...'});
 
   final ValueChanged<String> onChanged;
   final String hint;
 
   @override
+  State<SearchField> createState() => _SearchFieldState();
+}
+
+class _SearchFieldState extends State<SearchField> {
+  final _controller = TextEditingController();
+  Timer? _debounce;
+  String _sent = '';
+
+  void _type(String v) {
+    _debounce?.cancel();
+    // An empty box goes back to the full list at once; nothing is being typed.
+    _debounce = Timer(Duration(milliseconds: v.isEmpty ? 0 : 320), () {
+      if (!mounted || v == _sent) return;
+      _sent = v;
+      widget.onChanged(v);
+    });
+    setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
         child: TextField(
-          onChanged: onChanged,
+          controller: _controller,
+          onChanged: _type,
+          textInputAction: TextInputAction.search,
+          onSubmitted: (v) {
+            _debounce?.cancel();
+            _sent = v;
+            widget.onChanged(v);
+          },
           decoration: InputDecoration(
-            hintText: hint,
+            hintText: widget.hint,
             prefixIcon: const Icon(Icons.search),
+            suffixIcon: _controller.text.isEmpty
+                ? null
+                : IconButton(
+                    tooltip: 'مسح',
+                    icon: const Icon(Icons.close),
+                    onPressed: () {
+                      _controller.clear();
+                      _type('');
+                    },
+                  ),
           ),
         ),
       );
@@ -936,6 +985,83 @@ class Gap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SizedBox(height: size, width: size);
+}
+
+/// The same card-with-dividers look as [TileGroup], but only the rows on the
+/// screen are built.
+///
+/// This is what long lists use. A [TileGroup] inside a `ListView` builds every
+/// row the moment the screen opens, so a thousand products meant a thousand
+/// tiles before anything appeared; here the list costs the same whether the
+/// showroom has ten products or ten thousand.
+class TileListView extends StatelessWidget {
+  const TileListView({
+    super.key,
+    required this.itemCount,
+    required this.itemBuilder,
+    this.header,
+    this.footer,
+    this.margin = const EdgeInsets.symmetric(horizontal: 16),
+    this.bottomPadding = 90,
+    this.controller,
+  });
+
+  final int itemCount;
+  final Widget Function(BuildContext context, int index) itemBuilder;
+
+  /// Built once, above the card (totals, filters, a hint).
+  final Widget? header;
+  final Widget? footer;
+  final EdgeInsets margin;
+  final double bottomPadding;
+  final ScrollController? controller;
+
+  static const _radius = 18.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final lead = header == null ? 1 : 2;
+    final tail = footer == null ? 0 : 1;
+    return ListView.builder(
+      controller: controller,
+      padding: EdgeInsets.only(bottom: bottomPadding),
+      // One slot for the header, one for the top of the card, the rows, and
+      // one for the footer.
+      itemCount: itemCount + lead + tail,
+      itemBuilder: (context, i) {
+        if (header != null && i == 0) return header!;
+        final index = i - lead;
+        if (index < 0) return const SizedBox(height: 0);
+        if (index >= itemCount) return footer ?? const SizedBox.shrink();
+        final first = index == 0;
+        final last = index == itemCount - 1;
+        return Padding(
+          padding: margin,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border(
+                top: BorderSide(color: first ? AppColors.border : Colors.transparent),
+                bottom: BorderSide(color: last ? AppColors.border : Colors.transparent),
+                left: const BorderSide(color: AppColors.border),
+                right: const BorderSide(color: AppColors.border),
+              ),
+              borderRadius: BorderRadius.vertical(
+                top: Radius.circular(first ? _radius : 0),
+                bottom: Radius.circular(last ? _radius : 0),
+              ),
+            ),
+            child: Column(
+              children: [
+                if (!first) const Divider(height: 1, indent: 16, endIndent: 16),
+                itemBuilder(context, index),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
 
 /// Card with a list of tiles separated by dividers.

@@ -65,10 +65,11 @@ class _InstallmentsScreenState extends State<InstallmentsScreen> {
                   }
                   final total = rows.fold<double>(0, (a, r) => a + r.status.remaining);
                   final today = todayStr();
-                  return ListView(
-                    padding: const EdgeInsets.only(bottom: 24),
-                    children: [
-                      Padding(
+                  return TileListView(
+                    bottomPadding: 24,
+                    itemCount: rows.length,
+                    itemBuilder: (context, i) => _Tile(r: rows[i], today: today),
+                    header: Padding(
                         padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
                         child: Row(
                           children: [
@@ -78,8 +79,6 @@ class _InstallmentsScreenState extends State<InstallmentsScreen> {
                           ],
                         ),
                       ),
-                      TileGroup(children: [for (final r in rows) _Tile(r: r, today: today)]),
-                    ],
                   );
                 },
               ),

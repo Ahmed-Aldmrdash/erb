@@ -75,10 +75,29 @@ void main() {
   });
 
   test('nonsense in the list does not stop the printing screen', () async {
+    // Written straight into the settings file, the way a half-finished write
+    // or an older version would leave it; reset() is the app starting again
+    // and reading it back.
     await app.prefs.set('label_queue', 'not json at all');
+    LabelQueue.reset();
     expect(LabelQueue.items(), isEmpty);
+
     await app.prefs.set('label_queue', '{"": 3, "x": 0, "ok": 2}');
+    LabelQueue.reset();
     expect(LabelQueue.items(), {'ok': 2});
+  });
+
+  test('the list is read from the file once, not on every look', () async {
+    final id = await app.appliances.saveProduct({'name': 'ثلاجة'});
+    await LabelQueue.add(id, 4);
+
+    // Changing the file behind the queue's back is not seen until the app
+    // reads it again: the screens ask for this list on every rebuild, so it
+    // is answered from memory.
+    await app.prefs.set('label_queue', '{"other": 7}');
+    expect(LabelQueue.items(), {id: 4});
+    LabelQueue.reset();
+    expect(LabelQueue.items(), {'other': 7});
   });
 
   test('goods that were on the shelves before all go in at once', () async {

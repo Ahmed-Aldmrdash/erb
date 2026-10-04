@@ -12,6 +12,7 @@ import '../data/notes_repo.dart';
 import '../data/permissions.dart';
 import '../data/reports_repo.dart';
 import 'config.dart';
+import 'label_queue.dart';
 import 'db/app_db.dart';
 import 'db/prefs.dart';
 import 'db/schema.dart';
@@ -382,6 +383,8 @@ class AppState extends ChangeNotifier {
 
   Future<void> openDivision(String div) async {
     await _closeDivision();
+    // The sticker queue belongs to the division that was open.
+    LabelQueue.reset();
     final d = await AppDb.open(division: div);
     d.person = person;
     d.deviceCode = prefs.get('device_code');

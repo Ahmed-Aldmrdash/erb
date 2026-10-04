@@ -8,11 +8,26 @@ import 'util/format.dart';
 /// Only the product and how many stickers it needs are stored: the name, the
 /// code and the price are read from the database when the sheet is printed,
 /// so a label never carries a price that was changed in the meantime.
+///
+/// The list is held in memory as well as on disk. It is read on every build
+/// of the screens that show how many stickers are waiting, and a showroom-
+/// wide queue is a long list: reading it back from text every time was enough
+/// to make the + and − buttons feel stuck.
 class LabelQueue {
   static const _key = 'label_queue';
 
+  static Map<String, int>? _cache;
+
   /// {productId: how many stickers}, in the order they were added.
-  static Map<String, int> items() {
+  static Map<String, int> items() => Map.of(_live());
+
+  static Map<String, int> _live() {
+    final cached = _cache;
+    if (cached != null) return cached;
+    return _cache = _read();
+  }
+
+  static Map<String, int> _read() {
     try {
       final raw = jsonDecode(app.prefs.get(_key, '{}'));
       if (raw is! Map) return {};
@@ -25,7 +40,14 @@ class LabelQueue {
     }
   }
 
-  static Future<void> _save(Map<String, int> items) => app.prefs.set(_key, jsonEncode(items));
+  static Future<void> _save(Map<String, int> items) {
+    _cache = items;
+    return app.prefs.set(_key, jsonEncode(items));
+  }
+
+  /// Forgets the copy in memory; the next read comes from disk. Used when the
+  /// phone switches to another division or another person.
+  static void reset() => _cache = null;
 
   static Future<void> add(String productId, int count) async {
     if (productId.isEmpty || count <= 0) return;
@@ -62,5 +84,5 @@ class LabelQueue {
 
   static Future<void> clear() => _save({});
 
-  static int get total => items().values.fold(0, (a, b) => a + b);
+  static int get total => _live().values.fold(0, (a, b) => a + b);
 }

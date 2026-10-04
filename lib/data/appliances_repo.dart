@@ -125,6 +125,42 @@ LEFT JOIN v_product_cost pc ON pc.product_id = p.id''';
 
   Future<DbRow?> product(String id) => db.q1('$_productSelect WHERE p.id = ?', [id]);
 
+  /// {product id: pieces on the shelf} for everything in stock, in one
+  /// query — what "ضيف كل اللي في المخزن" needs without reading a whole
+  /// product row per item.
+  Future<Map<String, int>> stockCounts() async {
+    final rows = await db.q('''
+SELECT st.item_id AS id, st.qty AS qty
+FROM (SELECT item_id, SUM(qty) AS qty FROM v_product_moves GROUP BY item_id) st
+JOIN products p ON p.id = st.item_id AND p.deleted = 0
+WHERE st.qty >= 1''');
+    return {for (final r in rows) s(r['id']): n(r['qty']).round()};
+  }
+
+  /// Name, number and prices of the given products in one query — everything
+  /// a price label needs, and nothing else.
+  ///
+  /// The labels screen used to ask for its products one at a time, each one a
+  /// full product query with the stock counted; with a showroom full of goods
+  /// that is what stopped the screen from opening at all.
+  Future<List<DbRow>> productsForLabels(List<String> ids) async {
+    if (ids.isEmpty) return const [];
+    final out = <DbRow>[];
+    // SQLite only takes so many bound values at once, so ask in batches.
+    const batch = 300;
+    for (var i = 0; i < ids.length; i += batch) {
+      final end = i + batch < ids.length ? i + batch : ids.length;
+      final chunk = ids.sublist(i, end);
+      final marks = List.filled(chunk.length, '?').join(', ');
+      out.addAll(await db.q(
+        'SELECT id, name, unit, barcode, retail_price, wholesale_price '
+        'FROM products WHERE deleted = 0 AND id IN ($marks)',
+        chunk,
+      ));
+    }
+    return out;
+  }
+
   /// Active products with their stock in one warehouse (for a stock count).
   Future<List<DbRow>> productsAtWarehouse(String warehouseId, {String search = ''}) {
     final args = <Object?>[warehouseId];
