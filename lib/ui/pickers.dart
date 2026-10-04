@@ -4,6 +4,7 @@ import '../core/app_state.dart';
 import '../core/db/app_db.dart';
 import '../core/util/format.dart';
 import '../data/labels.dart';
+import '../data/permissions.dart';
 import '../features/accounts/party_form.dart';
 import '../features/appliances/product_form.dart';
 import 'theme.dart';
@@ -192,7 +193,7 @@ Future<DbRow?> pickCashBox(BuildContext context) => showPicker(
       trailingOf: (r) => Text(egp(n(r['balance'])), style: const TextStyle(fontWeight: FontWeight.w600)),
     );
 
-Future<DbRow?> pickProduct(BuildContext context, {String priceLevel = 'retail', bool forPurchase = false, String? boughtBy}) =>
+Future<DbRow?> pickProduct(BuildContext context, {bool forPurchase = false, String? boughtBy}) =>
     showPicker(
       context,
       title: boughtBy != null ? 'اختار صنف من مشتريات العميل' : 'اختار الصنف',
@@ -200,11 +201,13 @@ Future<DbRow?> pickProduct(BuildContext context, {String priceLevel = 'retail', 
       titleOf: (r) => s(r['name']),
       subtitleOf: (r) => _join([s(r['brand']), s(r['model']), 'متاح: ${qty(n(r['stock']))}']),
       trailingOf: (r) {
-        final price = forPurchase
-            ? n(r['cost_price'])
-            : n(r[priceLevel == 'wholesale' ? 'wholesale_price' : 'retail_price']);
+        final price = forPurchase ? n(r['cost_price']) : n(r['retail_price']);
         return Text(egp(price), style: const TextStyle(fontWeight: FontWeight.w700));
       },
-      onAdd: boughtBy != null ? null : (c) => push<DbRow>(c, const ProductFormScreen()),
+      // Creating a product from inside an invoice is still creating a
+      // product: not for an account that may only sell.
+      onAdd: boughtBy != null || !app.can(Perm.stock)
+          ? null
+          : (c) => push<DbRow>(c, const ProductFormScreen()),
       addLabel: 'إضافة صنف جديد',
     );

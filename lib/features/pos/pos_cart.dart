@@ -39,8 +39,7 @@ class PosCart extends ChangeNotifier {
   double get subtotal => roundMoney(lines.fold(0, (a, l) => a + l.total));
   double get total => roundMoney((subtotal - discount).clamp(0, double.infinity));
 
-  double priceOf(DbRow product) =>
-      n(product[priceLevel == 'wholesale' ? 'wholesale_price' : 'retail_price']);
+  double priceOf(DbRow product) => n(product['retail_price']);
 
   double qtyOf(String productId) => lines.where((l) => l.productId == productId).fold(0, (a, l) => a + l.qty);
 

@@ -19,7 +19,6 @@ void main() {
     String name = 'ثلاجة 16 قدم',
     double cost = 10000,
     double retail = 13000,
-    double wholesale = 12000,
     double stock = 0,
   }) async {
     final id = await shop.appliances.saveProduct({
@@ -27,7 +26,6 @@ void main() {
       'barcode': await shop.appliances.nextProductCode(),
       'cost_price': cost,
       'retail_price': retail,
-      'wholesale_price': wholesale,
     });
     if (stock > 0) {
       await shop.crops.saveStockMove({
@@ -159,7 +157,7 @@ void main() {
   // ---------------------------------------------------------------- prices
 
   test('a purchase at a new price lifts the selling prices by the same ratio', () async {
-    final id = await addProduct(cost: 10000, retail: 13000, wholesale: 12000);
+    final id = await addProduct(cost: 10000, retail: 13000);
     // Bought 10% dearer: 13,000 -> 14,300 rounded up to the next 10.
     final updates = await shop.appliances.suggestPriceUpdates(
       [InvoiceLineDraft(productId: id, name: 'ثلاجة', qty: 2, price: 11000)],
@@ -167,7 +165,6 @@ void main() {
     );
     expect(updates.single.cost, 11000);
     expect(updates.single.retail, 14300);
-    expect(updates.single.wholesale, 13200);
 
     // Nothing moves until the invoice is saved with the confirmed prices.
     expect(n((await shop.appliances.product(id))!['retail_price']), 13000);
@@ -189,11 +186,10 @@ void main() {
     final p = (await shop.appliances.product(id))!;
     expect(n(p['cost_price']), 11000);
     expect(n(p['retail_price']), 14300);
-    expect(n(p['wholesale_price']), 13200);
   });
 
   test('a price that no longer covers the cost is rebuilt from the margin', () async {
-    final id = await addProduct(cost: 1000, retail: 1200, wholesale: 0);
+    final id = await addProduct(cost: 1000, retail: 1200);
     final updates = await shop.appliances.suggestPriceUpdates(
       [InvoiceLineDraft(productId: id, name: 'مروحة', qty: 1, price: 1500)],
       step: 10,
@@ -201,8 +197,6 @@ void main() {
     );
     // 1,200 would be a loss, so the margin decides: 1,500 + 20% = 1,800.
     expect(updates.single.retail, 1800);
-    // A product with no wholesale price does not suddenly get one.
-    expect(updates.single.wholesale, 0);
   });
 
   test('goods with no purchase price on record take the price we type', () async {

@@ -169,7 +169,6 @@ void main() {
     final fridge = await appliances.saveProduct({
       'name': 'ثلاجة 16 قدم',
       'retail_price': 15000,
-      'wholesale_price': 14000,
       'cost_price': 12000,
       'barcode': '6221234567890',
     });

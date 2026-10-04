@@ -82,6 +82,37 @@ class LabelQueue {
     return touched;
   }
 
+  /// Adds [count] stickers to every product already in the list.
+  static Future<void> addToEach(int count) async {
+    if (count <= 0) return;
+    final all = items();
+    for (final id in all.keys.toList()) {
+      all[id] = all[id]! + count;
+    }
+    await _save(all);
+  }
+
+  /// Brings the whole list up to [count] stickers each.
+  ///
+  /// A product that is already past that number is left where it is, unless
+  /// [lowerTheOnesAbove] says to bring it down with the rest — that is the
+  /// owner's call, and [above] is what the screen asks him about.
+  static Future<void> raiseAllTo(int count, {bool lowerTheOnesAbove = false}) async {
+    if (count <= 0) return;
+    final all = items();
+    for (final id in all.keys.toList()) {
+      final have = all[id]!;
+      all[id] = have > count && !lowerTheOnesAbove ? have : count;
+    }
+    await _save(all);
+  }
+
+  /// The products in the list whose count is already past [count].
+  static Map<String, int> above(int count) => {
+        for (final e in _live().entries)
+          if (e.value > count) e.key: e.value,
+      };
+
   static Future<void> clear() => _save({});
 
   static int get total => _live().values.fold(0, (a, b) => a + b);

@@ -57,7 +57,6 @@ void main() {
       'category': 'ثلاجات',
       'cost_price': 15000,
       'retail_price': 17500,
-      'wholesale_price': 16800,
       'min_qty': 2,
     });
     await app.crops.saveStockMove({

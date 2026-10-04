@@ -276,7 +276,6 @@ class PdfDocs {
             pw.Expanded(
               child: _box([
                 _kv('طريقة الدفع', paymentTypes[inv['payment_type']] ?? ''),
-                if (kind == 'sale') _kv('نوع السعر', priceLevels[inv['price_level']] ?? ''),
                 if (isInstallment) ...[
                   _kv('عدد الأقساط', '${ni(inv['inst_months'])} شهر'),
                   if (s(inv['guarantor_name']).isNotEmpty) _kv('الضامن', s(inv['guarantor_name'])),
@@ -446,13 +445,13 @@ class PdfDocs {
   /// few hundred labels it took the whole app down with it.
   static const labelsPerRow = 3;
 
-  static Future<Uint8List> labels(List<(DbRow product, int count)> products, {bool wholesale = false}) async {
+  static Future<Uint8List> labels(List<(DbRow product, int count)> products) async {
     final doc = pw.Document(theme: await _loadTheme());
     final shop = app.companyName;
     final cells = <pw.Widget>[];
     for (final (p, count) in products) {
       final code = s(p['barcode']);
-      final price = n(p[wholesale ? 'wholesale_price' : 'retail_price']);
+      final price = n(p['retail_price']);
       // The bars carry the number and the price behind it, and the digits
       // under them are spaced so the price can be read off the end.
       final data = ProductCode.labelBarcode(code, price);

@@ -130,7 +130,6 @@ class InvoiceDetailScreen extends StatelessWidget {
                       ),
                       InfoRow('التاريخ', showDate(inv['date'])),
                       InfoRow('طريقة الدفع', paymentTypes[inv['payment_type']] ?? ''),
-                      if (kind == 'sale') InfoRow('السعر', priceLevels[inv['price_level']] ?? ''),
                       InfoRow('المخزن', s(inv['warehouse_name'])),
                       if (isInstallment && s(inv['guarantor_name']).isNotEmpty)
                         InfoRow('الضامن', '${s(inv['guarantor_name'])} ${s(inv['guarantor_phone'])}'),

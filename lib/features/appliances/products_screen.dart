@@ -250,8 +250,6 @@ class ProductTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Text(egp(n(r['retail_price'])), style: const TextStyle(fontWeight: FontWeight.w700)),
-          if (n(r['wholesale_price']) > 0)
-            Text('جملة ${money(n(r['wholesale_price']))}', style: const TextStyle(color: AppColors.muted, fontSize: 12)),
         ],
       ),
       onTap: () => push(context, ProductDetailScreen(productId: s(r['id']))),

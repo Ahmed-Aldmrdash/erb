@@ -4,6 +4,7 @@ import 'package:flutter_native_contact_picker/flutter_native_contact_picker.dart
 import '../../core/app_state.dart';
 import '../../core/db/app_db.dart';
 import '../../core/label_queue.dart';
+import '../../core/platform.dart';
 import '../../core/util/format.dart';
 import '../../data/appliances_repo.dart';
 import '../../data/calc.dart';
@@ -230,11 +231,11 @@ class _InvoiceFormState extends State<InvoiceForm> {
 
   double _priceOf(DbRow product) => usesCost
       ? n(product['cost_price'])
-      : n(product[_priceLevel == 'wholesale' ? 'wholesale_price' : 'retail_price']);
+      : n(product['retail_price']);
 
   Future<void> _addLine() async {
     final boughtBy = widget.kind == 'sale_return' && _party != null ? s(_party!['id']) : null;
-    final p = await pickProduct(context, priceLevel: _priceLevel, forPurchase: usesCost, boughtBy: boughtBy);
+    final p = await pickProduct(context, forPurchase: usesCost, boughtBy: boughtBy);
     if (p == null || !mounted) return;
     final available = await app.appliances.stockAt(s(p['id']), _warehouse?['id'] as String?, excludeInvoiceId: widget.id);
     // Block adding out-of-stock products to sale invoices.
@@ -586,10 +587,6 @@ class _InvoiceFormState extends State<InvoiceForm> {
                 await _refreshStock();
               },
             ),
-            if (isSale) ...[
-              const Gap(),
-              Choice<String>(options: priceLevels, value: _priceLevel, onChanged: _changePriceLevel),
-            ],
             _label('الأصناف'),
             Box(
               padding: const EdgeInsets.symmetric(vertical: 4),
@@ -713,11 +710,14 @@ class _InvoiceFormState extends State<InvoiceForm> {
               label: 'تليفون الضامن',
               icon: Icons.phone_outlined,
               keyboard: TextInputType.phone,
-              suffixIcon: IconButton(
-                icon: Icon(Icons.contacts_outlined, color: AppColors.primary),
-                onPressed: _pickGuarantorContact,
-                tooltip: 'اختيار من جهات الاتصال',
-              ),
+              // No contacts list on a laptop.
+              suffixIcon: !isMobile
+                  ? null
+                  : IconButton(
+                      icon: Icon(Icons.contacts_outlined, color: AppColors.primary),
+                      onPressed: _pickGuarantorContact,
+                      tooltip: 'اختيار من جهات الاتصال',
+                    ),
             ),
             const Gap(8),
             const Divider(),

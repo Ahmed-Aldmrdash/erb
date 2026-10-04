@@ -50,8 +50,6 @@ class PriceUpdate {
     required this.cost,
     required this.oldRetail,
     required this.retail,
-    required this.oldWholesale,
-    required this.wholesale,
   });
 
   final String productId;
@@ -60,11 +58,8 @@ class PriceUpdate {
   final double cost;
   final double oldRetail;
   double retail;
-  final double oldWholesale;
-  double wholesale;
 
-  bool get changesPrices =>
-      (retail - oldRetail).abs() > 0.009 || (wholesale - oldWholesale).abs() > 0.009;
+  bool get changesPrices => (retail - oldRetail).abs() > 0.009;
 }
 
 /// Selling a piece the warehouse does not have.
@@ -153,7 +148,7 @@ WHERE st.qty >= 1''');
       final chunk = ids.sublist(i, end);
       final marks = List.filled(chunk.length, '?').join(', ');
       out.addAll(await db.q(
-        'SELECT id, name, unit, barcode, retail_price, wholesale_price '
+        'SELECT id, name, unit, barcode, retail_price '
         'FROM products WHERE deleted = 0 AND id IN ($marks)',
         chunk,
       ));
@@ -278,11 +273,10 @@ ORDER BY LENGTH(p.barcode) DESC LIMIT 1''', [code, code]);
     final out = <PriceUpdate>[];
     for (final l in lines) {
       if (l.price <= 0) continue;
-      final p = await db.q1('SELECT name, cost_price, retail_price, wholesale_price FROM products WHERE id = ?', [l.productId]);
+      final p = await db.q1('SELECT name, cost_price, retail_price FROM products WHERE id = ?', [l.productId]);
       if (p == null) continue;
       final oldCost = n(p['cost_price']);
       final oldRetail = n(p['retail_price']);
-      final oldWholesale = n(p['wholesale_price']);
       final costChanged = (oldCost - l.price).abs() > 0.009;
       // A selling price typed on the invoice wins: it is the answer for goods
       // that have been on the shelf since before anybody wrote down what they
@@ -303,15 +297,6 @@ ORDER BY LENGTH(p.barcode) DESC LIMIT 1''', [code, code]);
           step: step,
           marginPct: marginPct,
         ),
-        oldWholesale: oldWholesale,
-        wholesale: priceFollowingCost(
-          oldCost: oldCost,
-          newCost: l.price,
-          oldPrice: oldWholesale,
-          step: step,
-          marginPct: marginPct,
-          fillEmpty: false,
-        ),
       );
       if (costChanged || u.changesPrices) out.add(u);
     }
@@ -319,10 +304,9 @@ ORDER BY LENGTH(p.barcode) DESC LIMIT 1''', [code, code]);
   }
 
   /// Changes prices without touching anything else (the quick price sheet).
-  Future<void> setPrices(String productId, {double? cost, double? retail, double? wholesale}) => saveProduct({
+  Future<void> setPrices(String productId, {double? cost, double? retail}) => saveProduct({
         'cost_price': ?cost,
         'retail_price': ?retail,
-        'wholesale_price': ?wholesale,
       }, id: productId);
 
   Future<List<DbRow>> productStockByWarehouse(String productId) => db.q('''
@@ -531,7 +515,6 @@ WHERE item_id = ? AND (? IS NULL OR warehouse_id = ?) AND doc_id IS NOT ?''',
           await w.update('products', u.productId, {
             'cost_price': u.cost,
             'retail_price': u.retail,
-            'wholesale_price': u.wholesale,
           });
         }
 

@@ -4,12 +4,55 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import '../../core/platform.dart';
 import '../../core/util/format.dart';
 import '../../ui/theme.dart';
 
-/// Opens a live camera that continuously scans for barcodes. Returns the first barcode it reads.
-Future<String?> scanBarcode(BuildContext context) =>
-    Navigator.of(context).push<String>(MaterialPageRoute(builder: (_) => const _CodeReaderPage()));
+/// Reads a barcode: the camera on a phone, the USB reader on the laptop.
+///
+/// A shop reader is a keyboard — it types the number and presses Enter — so on
+/// the laptop a box to read into is both simpler and faster than a camera that
+/// is not there.
+Future<String?> scanBarcode(BuildContext context) => isMobile
+    ? Navigator.of(context).push<String>(MaterialPageRoute(builder: (_) => const _CodeReaderPage()))
+    : _readWithDevice(context);
+
+Future<String?> _readWithDevice(BuildContext context) async {
+  final code = TextEditingController();
+  final out = await showDialog<String>(
+    context: context,
+    builder: (c) => AlertDialog(
+      title: const Text('امسح الباركود'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'وجّه القارئ على الباركود، أو اكتب الرقم بإيدك.',
+            style: TextStyle(color: AppColors.muted, height: 1.5),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: code,
+            autofocus: true,
+            textDirection: TextDirection.ltr,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(labelText: 'الكود', prefixIcon: Icon(Icons.qr_code_2)),
+            onSubmitted: (v) => Navigator.pop(c, normalizeDigits(v.trim())),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(c), child: const Text('إلغاء')),
+        FilledButton(
+          onPressed: () => Navigator.pop(c, normalizeDigits(code.text.trim())),
+          child: const Text('تمام'),
+        ),
+      ],
+    ),
+  );
+  return (out == null || out.isEmpty) ? null : out;
+}
 
 class _CodeReaderPage extends StatefulWidget {
   const _CodeReaderPage();

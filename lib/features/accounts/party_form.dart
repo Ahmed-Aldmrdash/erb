@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_native_contact_picker/flutter_native_contact_picker.dart';
 
 import '../../core/app_state.dart';
+import '../../core/platform.dart';
 import '../../core/util/format.dart';
 import '../../data/labels.dart';
 import '../../ui/theme.dart';
@@ -163,11 +164,14 @@ class _PartyFormScreenState extends State<PartyFormScreen> {
                 label: 'التليفون',
                 icon: Icons.phone_outlined,
                 keyboard: TextInputType.phone,
-                suffixIcon: IconButton(
-                  icon: Icon(Icons.contacts_outlined, color: AppColors.primary),
-                  onPressed: _pickContact,
-                  tooltip: 'اختيار من جهات الاتصال',
-                ),
+                // No contacts list on a laptop.
+                suffixIcon: !isMobile
+                    ? null
+                    : IconButton(
+                        icon: Icon(Icons.contacts_outlined, color: AppColors.primary),
+                        onPressed: _pickContact,
+                        tooltip: 'اختيار من جهات الاتصال',
+                      ),
               ),
               const Gap(),
               TextF(controller: _address, label: 'العنوان', icon: Icons.location_on_outlined),

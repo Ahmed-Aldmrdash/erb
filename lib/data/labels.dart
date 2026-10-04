@@ -26,11 +26,6 @@ const paymentTypes = {
   'installment': 'تقسيط',
 };
 
-const priceLevels = {
-  'retail': 'قطاعي',
-  'wholesale': 'جملة',
-};
-
 const voucherKinds = {
   'receipt': 'استلام فلوس',
   'payment': 'دفع فلوس',

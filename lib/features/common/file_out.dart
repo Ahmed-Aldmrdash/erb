@@ -1,12 +1,15 @@
 import 'dart:io';
 
+import 'package:file_selector/file_selector.dart' as fs;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/app_state.dart';
+import '../../core/platform.dart';
 import '../../core/util/format.dart';
 import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
@@ -98,21 +101,20 @@ Future<void> saveOrSendFile(
               ],
             ),
             const SizedBox(height: 18),
-            if (Platform.isAndroid) ...[
-              FilledButton.icon(
-                style: FilledButton.styleFrom(backgroundColor: color, minimumSize: const Size.fromHeight(52)),
-                onPressed: () => Navigator.pop(c, 'save'),
-                icon: const Icon(Icons.download_rounded),
-                label: Text(saveLabel),
-              ),
-              const SizedBox(height: 10),
-            ],
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52)),
-              onPressed: () => Navigator.pop(c, 'share'),
-              icon: const Icon(Icons.share_outlined),
-              label: Text(sendLabel),
+            FilledButton.icon(
+              style: FilledButton.styleFrom(backgroundColor: color, minimumSize: const Size.fromHeight(52)),
+              onPressed: () => Navigator.pop(c, 'save'),
+              icon: const Icon(Icons.download_rounded),
+              label: Text(isMobile ? saveLabel : 'احفظه في فولدر التنزيلات'),
             ),
+            const SizedBox(height: 10),
+            if (isMobile)
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+                onPressed: () => Navigator.pop(c, 'share'),
+                icon: const Icon(Icons.share_outlined),
+                label: Text(sendLabel),
+              ),
           ],
         ),
       ),
@@ -121,10 +123,12 @@ Future<void> saveOrSendFile(
   if (!context.mounted) return;
   try {
     if (choice == 'save') {
-      final saved = await _files.invokeMapMethod<String, Object?>(
-        'saveToDownloads',
-        {'path': file.path, 'name': name, 'mime': mime},
-      );
+      final saved = isMobile
+          ? await _files.invokeMapMethod<String, Object?>(
+              'saveToDownloads',
+              {'path': file.path, 'name': name, 'mime': mime},
+            )
+          : await _saveOnComputer(file, name);
       if (saved == null || !context.mounted) return;
       final m = ScaffoldMessenger.of(context);
       m.hideCurrentSnackBar();
@@ -154,7 +158,29 @@ Future<void> saveOrSendFile(
   }
 }
 
+/// Puts the file in the Downloads folder of the laptop and hands back the
+/// same answer the phone gives, so the screen above does not care which one
+/// it is talking to.
+Future<Map<String, Object?>?> _saveOnComputer(File file, String name) async {
+  final dir = await getDownloadsDirectory() ?? await getApplicationDocumentsDirectory();
+  var out = File(p.join(dir.path, name));
+  // Never write over a file that is already there.
+  if (out.existsSync()) {
+    final base = p.basenameWithoutExtension(name), ext = p.extension(name);
+    for (var i = 2; out.existsSync() && i < 100; i++) {
+      out = File(p.join(dir.path, '$base ($i)$ext'));
+    }
+  }
+  await file.copy(out.path);
+  return {'downloads': true, 'uri': out.path};
+}
+
 Future<void> openSavedFile(BuildContext context, String uri, String mime) async {
+  if (!isMobile) {
+    final ok = await launchUrl(Uri.file(uri));
+    if (!ok && context.mounted) toast(context, 'مش عارف يفتح الملف. هتلاقيه في فولدر التنزيلات.', error: true);
+    return;
+  }
   final ok = await _files.invokeMethod<bool>('open', {'uri': uri, 'mime': mime}) ?? false;
   if (!ok && context.mounted) {
     toast(
@@ -170,7 +196,18 @@ Future<void> openSavedFile(BuildContext context, String uri, String mime) async 
 /// Lets the user pick a file from the phone. Returns a copy of it inside the
 /// app, or null when nothing was picked.
 Future<String?> pickFileFromPhone({String mime = '*/*'}) async {
-  if (!Platform.isAndroid) return null;
   final dir = await _outDir('in');
-  return _files.invokeMethod<String>('pickFile', {'mime': mime, 'dir': dir.path});
+  if (isMobile) {
+    return _files.invokeMethod<String>('pickFile', {'mime': mime, 'dir': dir.path});
+  }
+  // On the laptop the usual "open file" window.
+  final picked = await fs.openFile(
+    acceptedTypeGroups: [
+      if (mime == backupMime) const fs.XTypeGroup(label: 'نسخة احتياطية', extensions: ['json']),
+    ],
+  );
+  if (picked == null) return null;
+  final copy = File(p.join(dir.path, p.basename(picked.path)));
+  await copy.writeAsBytes(await picked.readAsBytes(), flush: true);
+  return copy.path;
 }

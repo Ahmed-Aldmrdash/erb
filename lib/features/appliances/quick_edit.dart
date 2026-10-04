@@ -4,6 +4,7 @@ import '../../core/app_state.dart';
 import '../../core/db/app_db.dart';
 import '../../core/util/format.dart';
 import '../../data/calc.dart';
+import '../../data/permissions.dart';
 import '../../ui/pickers.dart';
 import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
@@ -33,7 +34,6 @@ class _PriceSheet extends StatefulWidget {
 class _PriceSheetState extends State<_PriceSheet> {
   late final _cost = TextEditingController(text: numText(n(widget.product['cost_price'])));
   late final _retail = TextEditingController(text: numText(n(widget.product['retail_price'])));
-  late final _wholesale = TextEditingController(text: numText(n(widget.product['wholesale_price'])));
   final _profit = TextEditingController();
   bool _busy = false;
 
@@ -55,7 +55,6 @@ class _PriceSheetState extends State<_PriceSheet> {
       s(widget.product['id']),
       cost: parseNum(_cost.text),
       retail: parseNum(_retail.text),
-      wholesale: parseNum(_wholesale.text),
     );
     if (mounted) Navigator.pop(context, true);
   }
@@ -98,21 +97,11 @@ class _PriceSheetState extends State<_PriceSheet> {
                 Expanded(
                   child: NumField(
                     controller: _retail,
-                    label: 'سعر القطاعي',
+                    label: 'سعر البيع',
                     suffix: currency,
                     autofocus: true,
                     helper: _margin(_retail),
                     onChanged: (_) => setState(() => _profit.clear()),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: NumField(
-                    controller: _wholesale,
-                    label: 'سعر الجملة',
-                    suffix: currency,
-                    helper: _margin(_wholesale),
-                    onChanged: (_) => setState(() {}),
                   ),
                 ),
               ],
@@ -263,6 +252,9 @@ class _StockSheetState extends State<_StockSheet> {
 /// hurry — the price, how many pieces are left, a label, or the full form.
 Future<void> showProductActions(BuildContext context, DbRow product) async {
   final id = s(product['id']);
+  // Prices, quantities and labels belong to the storekeeper. A cashier gets
+  // nothing from this sheet, so it does not open for him at all.
+  if (!app.can(Perm.stock)) return;
   await showModalBottomSheet<void>(
     context: context,
     builder: (c) => SafeArea(

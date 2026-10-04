@@ -34,7 +34,6 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   final _cost = TextEditingController();
   final _profitPct = TextEditingController();
   final _retail = TextEditingController();
-  final _wholesale = TextEditingController();
   final _minQty = TextEditingController();
   final _initialStock = TextEditingController();
   final _notes = TextEditingController();
@@ -84,7 +83,6 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
         _unit.text = s(p['unit']);
         _cost.text = numText(n(p['cost_price']));
         _retail.text = numText(n(p['retail_price']));
-        _wholesale.text = numText(n(p['wholesale_price']));
         _minQty.text = numText(n(p['min_qty']));
         _notes.text = s(p['notes']);
         _active = n(p['active']) == 1;
@@ -104,7 +102,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   /// one without watching every field.
   String _signature() => [
         _name.text, _category.text, _brand.text, _model.text, _barcode.text, _unit.text,
-        _cost.text, _profitPct.text, _retail.text, _wholesale.text, _minQty.text,
+        _cost.text, _profitPct.text, _retail.text, _minQty.text,
         _initialStock.text, _notes.text, '$_active',
       ].join('|');
 
@@ -131,7 +129,6 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       'unit': _unit.text.trim().isEmpty ? 'قطعة' : _unit.text.trim(),
       'cost_price': parseNum(_cost.text),
       'retail_price': parseNum(_retail.text),
-      'wholesale_price': parseNum(_wholesale.text),
       'min_qty': parseNum(_minQty.text),
       'notes': _notes.text.trim(),
       'active': _active,
@@ -313,20 +310,10 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                         Expanded(
                           child: NumField(
                             controller: _retail,
-                            label: 'سعر القطاعي',
+                            label: 'سعر البيع',
                             suffix: currency,
                             helper: _margin(_retail),
                             onChanged: (_) => setState(() => _profitPct.clear()),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: NumField(
-                            controller: _wholesale,
-                            label: 'سعر الجملة',
-                            suffix: currency,
-                            helper: _margin(_wholesale),
-                            onChanged: (_) => setState(() {}),
                           ),
                         ),
                       ],

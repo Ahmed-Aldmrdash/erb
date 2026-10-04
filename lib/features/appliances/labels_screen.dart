@@ -8,6 +8,7 @@ import '../../core/util/format.dart';
 import '../../ui/pickers.dart';
 import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
+import '../common/file_out.dart';
 import '../common/pdf_docs.dart';
 import 'product_detail.dart';
 
@@ -28,7 +29,6 @@ class _LabelsScreenState extends State<LabelsScreen> {
   static const maxPerPrint = 300;
 
   List<(DbRow, int)> _rows = const [];
-  bool _wholesale = false;
   bool _loading = true;
   bool _printing = false;
 
@@ -89,6 +89,99 @@ class _LabelsScreenState extends State<LabelsScreen> {
     if (mounted) toast(context, 'اتحجز $stickers ملصق لـ ${counts.length} صنف');
   }
 
+  /// "ظبط العدد للكل": the same number of stickers for the whole list,
+  /// either added on top of what each one has or as the number they should
+  /// all reach.
+  Future<void> _countForAll() async {
+    if (_rows.isEmpty) return;
+    final box = TextEditingController(text: '10');
+    final mode = await showDialog<String>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('ظبط العدد للكل'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'العدد ده هيتطبق على ${_rows.length} صنف اللي في القايمة.',
+              style: const TextStyle(color: AppColors.muted, height: 1.5),
+            ),
+            const Gap(),
+            NumField(controller: box, label: 'عدد الملصقات', autofocus: true),
+            const Gap(14),
+            FilledButton.icon(
+              onPressed: () => Navigator.pop(c, 'add'),
+              icon: const Icon(Icons.add),
+              label: const Text('زوّد العدد ده للكل'),
+            ),
+            const Gap(8),
+            OutlinedButton.icon(
+              onPressed: () => Navigator.pop(c, 'set'),
+              icon: const Icon(Icons.equalizer),
+              label: const Text('خلّي الكل يوصل للعدد ده'),
+            ),
+          ],
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text('إلغاء'))],
+      ),
+    );
+    if (mode == null || !mounted) return;
+    final want = parseNum(box.text).round();
+    if (want <= 0) {
+      toast(context, 'اكتب عدد أكبر من صفر', error: true);
+      return;
+    }
+
+    if (mode == 'add') {
+      await LabelQueue.addToEach(want);
+      await _load();
+      if (mounted) toast(context, 'اتزود $want ملصق لكل صنف');
+      return;
+    }
+
+    // Reaching a number: the ones already above it are the owner's call.
+    final over = LabelQueue.above(want);
+    var lowerThem = false;
+    if (over.isNotEmpty) {
+      final most = over.values.reduce((a, b) => a > b ? a : b);
+      lowerThem = await confirmDialog(
+        context,
+        title: 'في أصناف عددها أكبر',
+        message: '${over.length} صنف عددهم أكبر من $want (أكبر واحد $most ملصق).\n\n'
+            'تنزّلهم لـ $want برضه، ولا تسيبهم زي ما هم؟',
+        ok: 'نزّلهم لـ $want',
+        cancel: 'سيبهم زي ما هم',
+      );
+      if (!mounted) return;
+    }
+    await LabelQueue.raiseAllTo(want, lowerTheOnesAbove: lowerThem);
+    await _load();
+    if (mounted) {
+      toast(context, over.isEmpty || lowerThem
+          ? 'كل الأصناف بقت $want ملصق'
+          : 'اللي كان أقل من $want بقى $want، واللي كان أكتر سيبناه');
+    }
+  }
+
+  /// Saves the sheet as a PDF on the phone (or the laptop) without going
+  /// through the printer screen first.
+  Future<void> _exportPdf() async {
+    if (_rows.isEmpty) return;
+    final batch = _batch();
+    await saveOrSendFile(
+      context,
+      title: 'ملصقات الأسعار',
+      extension: 'pdf',
+      mime: 'application/pdf',
+      icon: Icons.local_offer_outlined,
+      color: AppColors.appliances,
+      build: () => PdfDocs.labels(batch),
+      details: () => '${batch.fold<int>(0, (a, r) => a + r.$2)} ملصق'
+          ' • ${batch.length} صنف',
+    );
+  }
+
   Future<void> _addProduct() async {
     final p = await pickProduct(context);
     if (p == null || !mounted) return;
@@ -112,6 +205,20 @@ class _LabelsScreenState extends State<LabelsScreen> {
     await LabelQueue.setCount(s(product['id']), count);
   }
 
+  /// The first products in the queue, up to [maxPerPrint] stickers: one
+  /// sheet's worth, whether it is printed or saved as a PDF.
+  List<(DbRow, int)> _batch() {
+    final batch = <(DbRow, int)>[];
+    var taken = 0;
+    for (final (p, count) in _rows) {
+      if (taken >= maxPerPrint) break;
+      final room = maxPerPrint - taken;
+      batch.add((p, count > room ? room : count));
+      taken += count > room ? room : count;
+    }
+    return batch;
+  }
+
   Future<void> _print() async {
     if (_printing) return;
     // Products with no number of their own cannot carry a barcode.
@@ -131,17 +238,8 @@ class _LabelsScreenState extends State<LabelsScreen> {
     }
     if (!mounted || _rows.isEmpty) return;
 
-    // One batch: the first products in the queue up to [maxPerPrint]
-    // stickers, so a big queue prints over a few goes instead of dying.
-    final batch = <(DbRow, int)>[];
-    var taken = 0;
-    for (final (p, count) in _rows) {
-      if (taken >= maxPerPrint) break;
-      final room = maxPerPrint - taken;
-      final take = count > room ? room : count;
-      batch.add((p, take));
-      taken += take;
-    }
+    final batch = _batch();
+    final taken = batch.fold<int>(0, (a, r) => a + r.$2);
     final rest = _total - taken;
     if (rest > 0) {
       final ok = await confirmDialog(
@@ -155,10 +253,9 @@ class _LabelsScreenState extends State<LabelsScreen> {
     }
 
     setState(() => _printing = true);
-    final wholesale = _wholesale;
     try {
       await Printing.layoutPdf(
-        onLayout: (_) => PdfDocs.labels(batch, wholesale: wholesale),
+        onLayout: (_) => PdfDocs.labels(batch),
         name: 'ملصقات الأسعار',
       );
     } catch (e) {
@@ -193,22 +290,67 @@ class _LabelsScreenState extends State<LabelsScreen> {
         appBar: AppBar(
           title: const Text('ملصقات الأسعار'),
           actions: [
-            IconButton(
-              tooltip: 'ضيف كل اللي في المخزن',
-              onPressed: _addEverything,
-              icon: const Icon(Icons.playlist_add),
-            ),
             if (_rows.isNotEmpty)
-              TextButton.icon(
-                onPressed: () async {
-                  final ok = await confirmDialog(context, title: 'تفريغ القايمة', message: 'تشيل كل الأصناف؟', ok: 'تفريغ', danger: true);
-                  if (!ok) return;
-                  await LabelQueue.clear();
-                  await _load();
-                },
-                icon: const Icon(Icons.delete_sweep_outlined, color: AppColors.bad),
-                label: const Text('تفريغ', style: TextStyle(color: AppColors.bad)),
+              IconButton(
+                tooltip: 'نزّل PDF',
+                onPressed: _exportPdf,
+                icon: const Icon(Icons.picture_as_pdf_outlined),
               ),
+            PopupMenuButton<String>(
+              tooltip: 'المزيد',
+              onSelected: (v) async {
+                switch (v) {
+                  case 'all':
+                    await _addEverything();
+                  case 'count':
+                    await _countForAll();
+                  case 'pdf':
+                    await _exportPdf();
+                  case 'clear':
+                    final ok = await confirmDialog(context,
+                        title: 'تفريغ القايمة', message: 'تشيل كل الأصناف؟', ok: 'تفريغ', danger: true);
+                    if (!ok) return;
+                    await LabelQueue.clear();
+                    await _load();
+                }
+              },
+              itemBuilder: (_) => [
+                const PopupMenuItem(
+                  value: 'all',
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.playlist_add),
+                    title: Text('ضيف كل اللي في المخزن'),
+                  ),
+                ),
+                if (_rows.isNotEmpty) ...[
+                  const PopupMenuItem(
+                    value: 'count',
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.equalizer),
+                      title: Text('ظبط العدد للكل'),
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'pdf',
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.picture_as_pdf_outlined),
+                      title: Text('نزّل PDF'),
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'clear',
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.delete_sweep_outlined, color: AppColors.bad),
+                      title: Text('تفريغ القايمة', style: TextStyle(color: AppColors.bad)),
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ],
         ),
         floatingActionButton: _rows.isEmpty
@@ -237,27 +379,15 @@ class _LabelsScreenState extends State<LabelsScreen> {
                   )
                 : TileListView(
                     itemCount: _rows.length,
-                    header: Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                          child: Choice<bool>(
-                            options: const {false: 'سعر القطاعي', true: 'سعر الجملة'},
-                            value: _wholesale,
-                            onChanged: (v) => setState(() => _wholesale = v),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
-                          child: Row(
-                            children: [
-                              Text('${_rows.length} صنف', style: const TextStyle(color: AppColors.muted)),
-                              const Spacer(),
-                              Text('$_total ملصق', style: const TextStyle(fontWeight: FontWeight.w700)),
-                            ],
-                          ),
-                        ),
-                      ],
+                    header: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 6, 20, 10),
+                      child: Row(
+                        children: [
+                          Text('${_rows.length} صنف', style: const TextStyle(color: AppColors.muted)),
+                          const Spacer(),
+                          Text('$_total ملصق', style: const TextStyle(fontWeight: FontWeight.w700)),
+                        ],
+                      ),
                     ),
                     footer: const Padding(
                       padding: EdgeInsets.fromLTRB(20, 14, 20, 0),
@@ -275,7 +405,7 @@ class _LabelsScreenState extends State<LabelsScreen> {
                         subtitle: Text(
                           [
                             code.isEmpty ? 'من غير كود' : 'كود $code',
-                            egp(n(p[_wholesale ? 'wholesale_price' : 'retail_price'])),
+                            egp(n(p['retail_price'])),
                           ].join(' • '),
                           style: TextStyle(color: code.isEmpty ? AppColors.warn : null),
                         ),

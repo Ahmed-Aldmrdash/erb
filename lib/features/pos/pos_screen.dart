@@ -8,6 +8,7 @@ import '../../core/db/app_db.dart';
 import '../../core/util/format.dart';
 import '../../data/appliances_repo.dart';
 import '../../data/labels.dart';
+import '../../data/permissions.dart';
 import '../../ui/pickers.dart';
 import '../../ui/share.dart';
 import '../../ui/theme.dart';
@@ -111,8 +112,12 @@ class _PosScreenState extends State<PosScreen> {
       _searchFocus.requestFocus();
       return;
     }
-    // Not a code we know: leave it in the box as a search, and offer to
-    // register it if it really is a code from a reader.
+    // Not a code we know. Registering it is the storekeeper's job, so a
+    // cashier is only told that the code is not in yet.
+    if (!app.can(Perm.stock)) {
+      toast(context, 'الكود $clean مش متسجل على أي صنف. قول للمسؤول عن المخزن.', error: true);
+      return;
+    }
     final add = await confirmDialog(
       context,
       title: 'مفيش صنف بالكود ده',
@@ -160,14 +165,6 @@ class _PosScreenState extends State<PosScreen> {
         appBar: AppBar(
           title: const Text('الكاشير'),
           actions: [
-            ListenableBuilder(
-              listenable: cart,
-              builder: (context, _) => TextButton.icon(
-                onPressed: () => cart.setLevel(cart.priceLevel == 'retail' ? 'wholesale' : 'retail'),
-                icon: const Icon(Icons.sell_outlined, size: 18),
-                label: Text(priceLevels[cart.priceLevel]!),
-              ),
-            ),
             IconButton(tooltip: 'قراءة باركود', onPressed: _scan, icon: const Icon(Icons.qr_code_scanner)),
             const SyncButton(),
           ],
@@ -238,7 +235,11 @@ class _PosScreenState extends State<PosScreen> {
                         // Tap asks how many pieces first; the scanner is the
                         // fast path that puts one straight in the basket.
                         onTap: () => _openProductSheet(rows[i]),
-                        onLongPress: () => push(context, ProductDetailScreen(productId: s(rows[i]['id']))),
+                        // A cashier sells; he does not get a way into the
+                        // product's own page from here.
+                        onLongPress: app.can(Perm.stock)
+                            ? () => push(context, ProductDetailScreen(productId: s(rows[i]['id'])))
+                            : null,
                       ),
                     ),
                   );
@@ -261,7 +262,7 @@ class _ProductCard extends StatelessWidget {
   final DbRow product;
   final double inCart;
   final VoidCallback onTap;
-  final VoidCallback onLongPress;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -928,31 +929,34 @@ class _ProductSheetState extends State<_ProductSheet> {
                       : 'ضيف ${qty(_qty)} للسلة',
             ),
           ),
-          const Gap(6),
-          Row(
-            children: [
-              Expanded(
-                child: TextButton.icon(
-                  onPressed: () async {
-                    await editProductPrices(context, _p);
-                    await _reload();
-                  },
-                  icon: const Icon(Icons.price_change_outlined),
-                  label: const Text('غيّر سعر الصنف نفسه'),
+          // Changing the product itself, and its page, are the storekeeper's.
+          if (app.can(Perm.stock)) ...[
+            const Gap(6),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton.icon(
+                    onPressed: () async {
+                      await editProductPrices(context, _p);
+                      await _reload();
+                    },
+                    icon: const Icon(Icons.price_change_outlined),
+                    label: const Text('غيّر سعر الصنف نفسه'),
+                  ),
                 ),
-              ),
-              Expanded(
-                child: TextButton.icon(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    push(context, ProductDetailScreen(productId: s(_p['id'])));
-                  },
-                  icon: const Icon(Icons.info_outline),
-                  label: const Text('تفاصيل الصنف'),
+                Expanded(
+                  child: TextButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      push(context, ProductDetailScreen(productId: s(_p['id'])));
+                    },
+                    icon: const Icon(Icons.info_outline),
+                    label: const Text('تفاصيل الصنف'),
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
         ],
       ),
     );

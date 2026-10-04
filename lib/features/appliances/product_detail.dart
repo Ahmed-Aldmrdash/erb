@@ -5,6 +5,7 @@ import '../../core/db/app_db.dart';
 import '../../core/util/format.dart';
 import '../../data/barcode.dart';
 import '../../data/labels.dart';
+import '../../data/permissions.dart';
 import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
 import '../common/open_doc.dart';
@@ -39,10 +40,13 @@ class ProductDetailScreen extends StatelessWidget {
             appBar: AppBar(
               title: Text(s(p['name'])),
               actions: [
-                IconButton(
-                  onPressed: () => push(context, ProductFormScreen(id: productId)),
-                  icon: const Icon(Icons.edit_outlined),
-                ),
+                // A cashier can look a product up, but changing it is the
+                // storekeeper's job.
+                if (app.can(Perm.stock))
+                  IconButton(
+                    onPressed: () => push(context, ProductFormScreen(id: productId)),
+                    icon: const Icon(Icons.edit_outlined),
+                  ),
               ],
             ),
             body: ListView(
@@ -71,11 +75,12 @@ class ProductDetailScreen extends StatelessWidget {
                               ],
                             ),
                           ),
-                          TextButton.icon(
-                            onPressed: () => addToLabels(context, p),
-                            icon: const Icon(Icons.local_offer_outlined),
-                            label: const Text('ملصق'),
-                          ),
+                          if (app.can(Perm.stock))
+                            TextButton.icon(
+                              onPressed: () => addToLabels(context, p),
+                              icon: const Icon(Icons.local_offer_outlined),
+                              label: const Text('ملصق'),
+                            ),
                         ],
                       ),
                     ),
@@ -98,36 +103,37 @@ class ProductDetailScreen extends StatelessWidget {
                   ),
                 ]),
                 const Gap(12),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () => editProductPrices(context, p),
-                          icon: const Icon(Icons.price_change_outlined),
-                          label: const Text('تعديل السعر'),
+                if (app.can(Perm.stock)) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => editProductPrices(context, p),
+                            icon: const Icon(Icons.price_change_outlined),
+                            label: const Text('تعديل السعر'),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () => editProductStock(context, p),
-                          icon: const Icon(Icons.inventory_2_outlined),
-                          label: const Text('تعديل الكمية'),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => editProductStock(context, p),
+                            icon: const Icon(Icons.inventory_2_outlined),
+                            label: const Text('تعديل الكمية'),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                const Gap(12),
+                  const Gap(12),
+                ],
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Box(
                     child: Column(
                       children: [
                         InfoRow('سعر القطاعي', egp(retail), bold: true),
-                        InfoRow('سعر الجملة', egp(n(p['wholesale_price']))),
                         InfoRow('سعر الشراء المسجل', egp(n(p['cost_price']))),
                         if (s(p['brand']).isNotEmpty) InfoRow('الماركة', s(p['brand'])),
                         if (s(p['model']).isNotEmpty) InfoRow('الموديل', s(p['model'])),

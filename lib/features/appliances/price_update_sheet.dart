@@ -32,7 +32,6 @@ class _PriceUpdateSheetState extends State<_PriceUpdateSheet> {
 
   Future<void> _edit(PriceUpdate u) async {
     final retail = TextEditingController(text: numText(u.retail));
-    final wholesale = TextEditingController(text: numText(u.wholesale));
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
@@ -45,7 +44,7 @@ class _PriceUpdateSheetState extends State<_PriceUpdateSheet> {
               const Gap(),
               NumField(
                 controller: retail,
-                label: 'سعر القطاعي',
+                label: 'سعر البيع',
                 suffix: currency,
                 autofocus: true,
                 onChanged: (_) => setInner(() {}),
@@ -53,8 +52,6 @@ class _PriceUpdateSheetState extends State<_PriceUpdateSheet> {
                     ? 'مكسب ${money(parseNum(retail.text) - u.cost)}'
                     : 'أقل من سعر الشراء!',
               ),
-              const Gap(),
-              NumField(controller: wholesale, label: 'سعر الجملة', suffix: currency, onChanged: (_) => setInner(() {})),
             ],
           ),
         ),
@@ -67,7 +64,6 @@ class _PriceUpdateSheetState extends State<_PriceUpdateSheet> {
     if (ok != true) return;
     setState(() {
       u.retail = parseNum(retail.text);
-      u.wholesale = parseNum(wholesale.text);
       _on.add(u.productId);
     });
   }
@@ -116,8 +112,7 @@ class _PriceUpdateSheetState extends State<_PriceUpdateSheet> {
                                   Text(u.name, style: const TextStyle(fontWeight: FontWeight.w700)),
                                   const SizedBox(height: 2),
                                   _line('الشراء', u.oldCost, u.cost),
-                                  _line('القطاعي', u.oldRetail, u.retail),
-                                  if (u.oldWholesale > 0 || u.wholesale > 0) _line('الجملة', u.oldWholesale, u.wholesale),
+                                  _line('البيع', u.oldRetail, u.retail),
                                 ],
                               ),
                             ),
