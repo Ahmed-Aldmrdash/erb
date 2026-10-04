@@ -107,13 +107,18 @@ class _HomeShellState extends State<HomeShell> {
                           ],
                         ),
                         const VerticalDivider(width: 1),
+                        // The cashier uses the whole desk: the goods on one
+                        // side, the basket on the other. The reading screens
+                        // keep a comfortable column instead.
                         Expanded(
-                          child: Center(
-                            child: ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 1040),
-                              child: page,
-                            ),
-                          ),
+                          child: key == 'pos'
+                              ? page
+                              : Center(
+                                  child: ConstrainedBox(
+                                    constraints: const BoxConstraints(maxWidth: 1040),
+                                    child: page,
+                                  ),
+                                ),
                         ),
                       ],
                     ),

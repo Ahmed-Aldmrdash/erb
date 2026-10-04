@@ -87,12 +87,16 @@ class _PosScreenState extends State<PosScreen> {
   Future<void> _scan() async {
     final code = await scanBarcode(context);
     if (code == null || !mounted) return;
-    await _onCode(code);
+    // Opening the camera is one deliberate act for one product, so it ends
+    // where a tap on the product ends: the sheet with the number of pieces
+    // and the price. A reader at the till is the fast way, and that one
+    // still drops straight into the basket.
+    await _onCode(code, openSheet: true);
   }
 
   /// A code from the camera, from a barcode reader, or typed by hand: the
   /// product number on its own, or a whole label (number + price).
-  Future<void> _onCode(String code) async {
+  Future<void> _onCode(String code, {bool openSheet = false}) async {
     final clean = normalizeDigits(code.trim());
     if (clean.isEmpty) return;
     final hit = await app.appliances.productByScan(clean);
@@ -102,13 +106,18 @@ class _PosScreenState extends State<PosScreen> {
         _searchCtrl.clear();
         _search = '';
       });
-      _addToCart(hit.product);
       // The box is still carrying a label from before the price changed.
       final onLabel = hit.labelPrice;
       final now = cart.priceOf(hit.product);
-      if (onLabel != null && (onLabel - now).abs() > 0.009 && mounted) {
-        toast(context, 'الملصق مكتوب عليه ${money(onLabel)} والسعر دلوقتي ${money(now)}. اطبعله ملصق جديد.');
+      final stale = onLabel != null && (onLabel - now).abs() > 0.009
+          ? 'الملصق مكتوب عليه ${money(onLabel)} والسعر دلوقتي ${money(now)}. اطبعله ملصق جديد.'
+          : null;
+      if (openSheet) {
+        await _openProductSheet(hit.product, notice: stale);
+        return;
       }
+      _addToCart(hit.product);
+      if (stale != null && mounted) toast(context, stale);
       _searchFocus.requestFocus();
       return;
     }
@@ -147,11 +156,11 @@ class _PosScreenState extends State<PosScreen> {
   }
 
   /// Long press: quantity and price of this line before it goes in.
-  Future<void> _openProductSheet(DbRow product) async {
+  Future<void> _openProductSheet(DbRow product, {String? notice}) async {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => _ProductSheet(product: product),
+      builder: (_) => _ProductSheet(product: product, notice: notice),
     );
     if (mounted) setState(() {});
   }
@@ -161,15 +170,48 @@ class _PosScreenState extends State<PosScreen> {
         focusNode: _scannerFocus,
         onKeyEvent: _scannerKeys,
         autofocus: true,
-        child: Scaffold(
-        appBar: AppBar(
-          title: const Text('الكاشير'),
-          actions: [
-            IconButton(tooltip: 'قراءة باركود', onPressed: _scan, icon: const Icon(Icons.qr_code_scanner)),
-            const SyncButton(),
-          ],
+        child: LayoutBuilder(
+          builder: (context, box) {
+            // On a laptop the basket sits open next to the goods, the way a
+            // till works; on a phone there is no room, so it stays a bar at
+            // the bottom that opens the basket when it is tapped.
+            final beside = box.maxWidth >= 1000;
+            return Scaffold(
+              appBar: AppBar(
+                title: const Text('الكاشير'),
+                actions: [
+                  IconButton(tooltip: 'قراءة باركود', onPressed: _scan, icon: const Icon(Icons.qr_code_scanner)),
+                  const SyncButton(),
+                ],
+              ),
+              body: beside
+                  ? Row(
+                      children: [
+                        Expanded(child: _catalogue()),
+                        const VerticalDivider(width: 1),
+                        SizedBox(
+                          width: 400,
+                          child: Material(
+                            color: Colors.white,
+                            child: _CartSheet(panel: true),
+                          ),
+                        ),
+                      ],
+                    )
+                  : _catalogue(),
+              bottomNavigationBar: beside
+                  ? null
+                  : ListenableBuilder(
+                      listenable: cart,
+                      builder: (context, _) => cart.isEmpty ? const SizedBox.shrink() : _CartBar(cart: cart),
+                    ),
+            );
+          },
         ),
-        body: Column(
+      );
+
+  /// The goods: the search box, the sections and the grid of products.
+  Widget _catalogue() => Column(
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
@@ -247,13 +289,7 @@ class _PosScreenState extends State<PosScreen> {
               ),
             ),
           ],
-        ),
-        bottomNavigationBar: ListenableBuilder(
-          listenable: cart,
-          builder: (context, _) => cart.isEmpty ? const SizedBox.shrink() : _CartBar(cart: cart),
-        ),
-      ),
-      );
+        );
 }
 
 class _ProductCard extends StatelessWidget {
@@ -374,8 +410,13 @@ Future<void> showCartSheet(BuildContext context) => showModalBottomSheet<void>(
       builder: (_) => const _CartSheet(),
     );
 
+/// The basket: a sheet that slides up on a phone, a panel that stays open
+/// beside the goods on a laptop. A panel is not a screen of its own, so it
+/// must never close itself the way the sheet does.
 class _CartSheet extends StatefulWidget {
-  const _CartSheet();
+  const _CartSheet({this.panel = false});
+
+  final bool panel;
 
   @override
   State<_CartSheet> createState() => _CartSheetState();
@@ -456,7 +497,7 @@ class _CartSheetState extends State<_CartSheet> {
       final level = cart.priceLevel;
       final discount = cart.discount;
       final nav = Navigator.of(context);
-      nav.pop();
+      if (!widget.panel) nav.pop();
       // The basket stays as it is until the installment invoice is really
       // saved: going back from it must never lose the sale.
       nav.push(MaterialPageRoute<void>(
@@ -539,7 +580,7 @@ class _CartSheetState extends State<_CartSheet> {
     cart.clear();
     if (!mounted) return;
     final nav = Navigator.of(context);
-    nav.pop();
+    if (!widget.panel) nav.pop();
     await showModalBottomSheet<void>(
       context: nav.context,
       builder: (_) => _SaleDone(invoiceId: id, total: total, change: change, customer: customer, paid: paid),
@@ -548,9 +589,9 @@ class _CartSheetState extends State<_CartSheet> {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+        padding: EdgeInsets.only(bottom: widget.panel ? 0 : MediaQuery.viewInsetsOf(context).bottom),
         child: SizedBox(
-          height: MediaQuery.sizeOf(context).height * 0.88,
+          height: widget.panel ? null : MediaQuery.sizeOf(context).height * 0.88,
           child: ListenableBuilder(
             listenable: cart,
             builder: (context, _) {
@@ -572,7 +613,7 @@ class _CartSheetState extends State<_CartSheet> {
                                   final ok = await confirmDialog(context, title: 'تفريغ السلة', message: 'تشيل كل الأصناف؟', ok: 'تفريغ', danger: true);
                                   if (ok) {
                                     cart.clear();
-                                    if (context.mounted) Navigator.pop(context);
+                                    if (context.mounted && !widget.panel) Navigator.pop(context);
                                   }
                                 },
                           icon: const Icon(Icons.delete_sweep_outlined, color: AppColors.bad),
@@ -813,9 +854,13 @@ class _SaleDone extends StatelessWidget {
 /// Long press on a product: how many pieces, at what price, and the quick
 /// ways to fix the product itself.
 class _ProductSheet extends StatefulWidget {
-  const _ProductSheet({required this.product});
+  const _ProductSheet({required this.product, this.notice});
 
   final DbRow product;
+
+  /// Something to say before the price is decided, e.g. that the sticker on
+  /// the box is older than the price in the app.
+  final String? notice;
 
   @override
   State<_ProductSheet> createState() => _ProductSheetState();
@@ -875,6 +920,18 @@ class _ProductSheetState extends State<_ProductSheet> {
             textAlign: TextAlign.center,
             style: TextStyle(color: out ? AppColors.bad : AppColors.muted),
           ),
+          if (widget.notice != null) ...[
+            const Gap(10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: AppColors.warnSoft, borderRadius: BorderRadius.circular(10)),
+              child: Text(
+                widget.notice!,
+                style: const TextStyle(color: AppColors.warn, height: 1.4, fontSize: 13),
+              ),
+            ),
+          ],
           const Gap(12),
           Row(
             children: [
