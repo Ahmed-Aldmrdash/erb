@@ -453,7 +453,10 @@ class PdfDocs {
       final code = s(p['barcode']);
       final price = n(p['retail_price']);
       // The bars carry the number and the price behind it, and the digits
-      // under them are spaced so the price can be read off the end.
+      // under them are the only place the price appears: the last five of
+      // them. Nothing on the label states it in words or figures, which is
+      // the whole point — the customer reads a barcode, the shop reads a
+      // price.
       final data = ProductCode.labelBarcode(code, price);
       for (var i = 0; i < count; i++) {
         cells.add(
@@ -468,17 +471,16 @@ class PdfDocs {
                 pw.Text(shop, style: _t(8, color: _grey), maxLines: 1),
                 pw.SizedBox(height: 1),
                 pw.SizedBox(
-                  height: 22,
+                  height: 32,
                   child: pw.Text(
                     s(p['name']),
-                    style: _t(9.5, bold: true),
+                    style: _t(12, bold: true),
                     textAlign: pw.TextAlign.center,
                     maxLines: 2,
                     overflow: pw.TextOverflow.clip,
                   ),
                 ),
-                pw.Text(egp(price), style: _t(15, bold: true)),
-                pw.SizedBox(height: 2),
+                pw.SizedBox(height: 3),
                 pw.Expanded(
                   child: pw.BarcodeWidget(
                     data: data,

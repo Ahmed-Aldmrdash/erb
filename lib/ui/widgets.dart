@@ -8,7 +8,28 @@ import '../core/util/format.dart';
 import 'theme.dart';
 
 Future<T?> push<T>(BuildContext context, Widget page) =>
-    Navigator.of(context).push<T>(MaterialPageRoute(builder: (_) => page));
+    Navigator.of(context).push<T>(MaterialPageRoute(builder: (_) => PageWidth(child: page)));
+
+/// Keeps a screen to a readable width on a laptop.
+///
+/// The app is drawn for a phone held in one hand; the same screen stretched
+/// across a wide monitor puts the price at one end of the desk and the name
+/// at the other. On a phone this changes nothing.
+class PageWidth extends StatelessWidget {
+  const PageWidth({super.key, required this.child});
+
+  final Widget child;
+
+  static const maxWidth = 1040.0;
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.sizeOf(context).width < 900) return child;
+    return Center(
+      child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: maxWidth), child: child),
+    );
+  }
+}
 
 void toast(BuildContext context, String message, {bool error = false}) {
   final m = ScaffoldMessenger.of(context);
@@ -380,23 +401,40 @@ class ActionTile extends StatelessWidget {
   }
 }
 
+/// The squares of quick actions.
+///
+/// [columns] is what a phone shows. On a laptop the tiles keep that size and
+/// the window simply fits more of them in a row — stretching four tiles
+/// across a wide screen turned each one into a poster.
 class ActionGrid extends StatelessWidget {
   const ActionGrid({super.key, required this.children, this.columns = 3});
 
   final List<Widget> children;
   final int columns;
 
+  static const _gap = 10.0;
+
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: GridView.count(
-          crossAxisCount: columns,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 10,
-          crossAxisSpacing: 10,
-          childAspectRatio: columns >= 4 ? 0.76 : 1.0,
-          children: children,
+        child: LayoutBuilder(
+          builder: (context, box) {
+            // The width one tile gets on a phone, which is the size that was
+            // drawn for; a mouse can do with a little more.
+            final phone = (390 - 32 - _gap * (columns - 1)) / columns;
+            final tile = box.maxWidth > 700 ? (phone < 120 ? 120.0 : phone) : phone;
+            return GridView(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: tile + _gap,
+                mainAxisSpacing: _gap,
+                crossAxisSpacing: _gap,
+                childAspectRatio: columns >= 4 ? 0.76 : 1.0,
+              ),
+              children: children,
+            );
+          },
         ),
       );
 }

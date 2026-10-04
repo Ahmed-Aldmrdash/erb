@@ -81,16 +81,56 @@ class _HomeShellState extends State<HomeShell> {
             onPopInvokedWithResult: (didPop, _) {
               if (!didPop) homeTab.value = 'home';
             },
-            child: Scaffold(
-              body: KeyedSubtree(key: ValueKey(key), child: tabs[key]!.page),
-              bottomNavigationBar: NavigationBar(
-                selectedIndex: keys.indexOf(key),
-                onDestinationSelected: (i) => homeTab.value = keys[i],
-                destinations: [
-                  for (final t in tabs.values)
-                    NavigationDestination(icon: Icon(t.icon), selectedIcon: Icon(t.selectedIcon), label: t.label),
-                ],
-              ),
+            child: LayoutBuilder(
+              builder: (context, box) {
+                final page = KeyedSubtree(key: ValueKey(key), child: tabs[key]!.page);
+                // A laptop screen: the sections go down the side the way a
+                // program on a computer has them, and the page keeps a
+                // readable width instead of stretching across a metre of
+                // glass.
+                if (box.maxWidth >= 900) {
+                  return Scaffold(
+                    body: Row(
+                      children: [
+                        NavigationRail(
+                          selectedIndex: keys.indexOf(key),
+                          onDestinationSelected: (i) => homeTab.value = keys[i],
+                          labelType: NavigationRailLabelType.all,
+                          groupAlignment: -0.85,
+                          destinations: [
+                            for (final t in tabs.values)
+                              NavigationRailDestination(
+                                icon: Icon(t.icon),
+                                selectedIcon: Icon(t.selectedIcon),
+                                label: Text(t.label),
+                              ),
+                          ],
+                        ),
+                        const VerticalDivider(width: 1),
+                        Expanded(
+                          child: Center(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 1040),
+                              child: page,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                return Scaffold(
+                  body: page,
+                  bottomNavigationBar: NavigationBar(
+                    selectedIndex: keys.indexOf(key),
+                    onDestinationSelected: (i) => homeTab.value = keys[i],
+                    destinations: [
+                      for (final t in tabs.values)
+                        NavigationDestination(icon: Icon(t.icon), selectedIcon: Icon(t.selectedIcon), label: t.label),
+                    ],
+                  ),
+                );
+              },
             ),
           );
         },

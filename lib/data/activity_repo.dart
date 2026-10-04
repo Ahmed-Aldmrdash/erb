@@ -25,12 +25,24 @@ UNION ALL SELECT 'product', id, NULL, NULL, NULL, retail_price, NULL,
   created_at, updated_at, created_by_name, updated_by_name, deleted FROM products''';
 
   Future<List<DbRow>> recent({String person = '', int limit = 300}) async {
+    // A stock movement is only readable with the thing that moved and where
+    // it moved: "تسوية مخزون 12-197" on its own tells nobody anything.
     final rows = await db.q('''
-SELECT a.*, p.name AS party_name, n.body AS note_body, pr.name AS product_name
+SELECT a.*, p.name AS party_name, n.body AS note_body, pr.name AS product_name,
+  m.item_type AS item_type, m.notes AS move_notes,
+  IFNULL(mp.name, mc.name) AS item_name,
+  IFNULL(mp.unit, mc.unit_name) AS item_unit,
+  w.name AS warehouse_name, w2.name AS to_warehouse_name,
+  (SELECT COUNT(*) FROM v_lines l WHERE l.invoice_id = a.doc_id) AS line_count
 FROM ($_union) a
 LEFT JOIN parties p ON p.id = a.party_id
 LEFT JOIN notes n ON a.doc_type = 'note' AND n.id = a.doc_id
 LEFT JOIN products pr ON a.doc_type = 'product' AND pr.id = a.doc_id
+LEFT JOIN stock_moves m ON a.doc_type = 'stock_move' AND m.id = a.doc_id
+LEFT JOIN products mp ON m.item_type = 'product' AND mp.id = m.item_id
+LEFT JOIN crops mc ON m.item_type = 'crop' AND mc.id = m.item_id
+LEFT JOIN warehouses w ON w.id = m.warehouse_id
+LEFT JOIN warehouses w2 ON w2.id = m.to_warehouse_id
 ORDER BY a.updated_at DESC LIMIT $limit''');
     final list = [
       for (final r in rows)
